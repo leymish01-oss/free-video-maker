@@ -119,29 +119,40 @@ async function humanFixes(page, tag) {
   check(still.length > 1000, `${tag}: the preview draws with the highlight`);
   await page.click(".hlrow .chip button");
   check((await chips()).length === 0, `${tag}: ✕ on a chip removes the highlight`);
-  // photos: two from the link, then one of ours, then remove and reorder
+  // photos: what the link gave (2 mocked, up to 3 live), then one of ours, then reorder and remove
   const thumbs = () => page.$$eval("#photoStrip .thumb", (t) => t.map((x) => x.getAttribute("aria-label")));
   let t = await thumbs();
-  check(t.length === 2 && t.every((x) => /from your link/.test(x)) && await page.isVisible("#addPhotos"), `${tag}: 2 photo thumbnails from the link, "+ Add your own" shown`);
-  check(/2 from your link/.test(await page.textContent("#photoHint")), `${tag}: the photo text says where they came from ("${(await page.textContent("#photoHint")).trim()}")`);
+  const n0 = t.length;
+  check(n0 >= 1 && t.every((x) => /from your link/.test(x)), `${tag}: ${n0} photo thumbnail(s) from the link`);
+  check(new RegExp(`${n0} from your link`).test(await page.textContent("#photoHint")), `${tag}: the photo text says where they came from ("${(await page.textContent("#photoHint")).trim()}")`);
+  if (await page.isHidden("#addPhotos")) { // full: remove one to make room
+    await page.click(`#photoStrip .thumb:nth-child(${n0}) .x`);
+    check((await thumbs()).length === n0 - 1 && await page.isVisible("#addPhotos"), `${tag}: ✕ removes a photo and "+ Add your own" comes back`);
+  } else check(await page.isVisible("#addPhotos"), `${tag}: "+ Add your own" shown while there's room`);
+  const had = (await thumbs()).length;
   await page.setInputFiles("#photos", join(here, "fixtures", "product-2.jpg"));
-  await page.waitForFunction(() => document.querySelectorAll("#photoStrip .thumb").length === 3);
+  await page.waitForFunction((n) => document.querySelectorAll("#photoStrip .thumb").length === n, had + 1);
   t = await thumbs();
-  check(/yours/.test(t[2]) && await page.isHidden("#addPhotos"), `${tag}: "+ Add your own" adds a 3rd photo, then hides at the limit`);
-  await page.focus("#photoStrip .thumb:nth-child(3)"); await page.keyboard.press("ArrowLeft");
-  t = await thumbs();
-  check(/yours/.test(t[1]), `${tag}: arrow keys move a photo (yours is now 2nd)`);
-  const box = async (n) => (await page.$(`#photoStrip .thumb:nth-child(${n})`)).boundingBox();
-  const [b2, b1] = [await box(2), await box(1)];
-  await page.mouse.move(b2.x + b2.width / 2, b2.y + b2.height / 2); await page.mouse.down();
-  await page.mouse.move(b1.x + b1.width / 2, b1.y + b1.height / 2, { steps: 6 }); await page.mouse.up();
-  t = await thumbs();
-  check(/yours/.test(t[0]), `${tag}: dragging moves a photo (yours is now 1st)`);
-  await page.click("#photoStrip .thumb:nth-child(1) .x");
-  t = await thumbs();
-  check(t.length === 2 && t.every((x) => /from your link/.test(x)) && await page.isVisible("#addPhotos"), `${tag}: ✕ removes a photo and "+ Add your own" comes back`);
-  // the logo: thumbnail, ✕, and "Use my own"
-  check(await page.isHidden("#logoThumb") && /Use my own logo/.test(await page.textContent("#logoPick")), `${tag}: no logo found → "Use my own logo"`);
+  check(/yours/.test(t[t.length - 1]) && (t.length < 3 || await page.isHidden("#addPhotos")), `${tag}: "+ Add your own" adds a photo (${t.length} now)${t.length >= 3 ? ", then hides at the limit" : ""}`);
+  if (t.length > 1) {
+    await page.focus(`#photoStrip .thumb:nth-child(${t.length})`); await page.keyboard.press("ArrowLeft");
+    t = await thumbs();
+    check(/yours/.test(t[t.length - 2]), `${tag}: arrow keys move a photo (yours moved one place left)`);
+    const box = async (n) => (await page.$(`#photoStrip .thumb:nth-child(${n})`)).boundingBox();
+    const [from, to] = [await box(t.length - 1), await box(1)];
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2); await page.mouse.down();
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 6 }); await page.mouse.up();
+    t = await thumbs();
+    check(/yours/.test(t[0]), `${tag}: dragging moves a photo (yours is now 1st)`);
+  }
+  await page.click(`#photoStrip .thumb:nth-child(${t.findIndex((x) => /yours/.test(x)) + 1}) .x`);
+  check((await thumbs()).every((x) => /from your link/.test(x)), `${tag}: ✕ removes your photo again`);
+  // the logo: what the link found (if anything), ✕, and "Use my own"
+  if (await page.isVisible("#logoThumb")) {
+    check(/Found on your page/.test(await page.textContent("#logoHint")) && /instead/.test(await page.textContent("#logoPick")), `${tag}: the link's logo shown as a thumbnail with ✕ and "Use my own instead"`);
+    await page.click("#logoRemove");
+  }
+  check(await page.isHidden("#logoThumb") && /Use my own logo/.test(await page.textContent("#logoPick")), `${tag}: no logo → "Use my own logo"`);
   await page.setInputFiles("#logo", join(here, "fixtures", "product-3.jpg"));
   await page.waitForSelector("#logoThumb", { state: "visible" });
   check(/instead/.test(await page.textContent("#logoPick")), `${tag}: own logo shown as a thumbnail`);
