@@ -137,10 +137,13 @@ export function spokenUrl(u) {
   return s.replace(/\./g, " dot ");
 }
 
-/** Scenes for a template and form values; the end card is appended when wanted. */
+/** Scenes for a template and form values; the end card is appended when wanted. A field missing from `values` uses
+ * the template's example (`value`); pass "" to leave it empty. Scenes with nothing to say are dropped. */
 export function buildScenes(key, values, { endcard = true, photos = 0 } = {}) {
   const t = TEMPLATES[key];
   const f = { ...Object.fromEntries(t.fields.map((x) => [x.id, x.value])), ...values, _photos: photos };
-  const scenes = t.build(f).filter(Boolean);
+  const said = (s) => s.type === "photo" || s.type === "product" && plain(s.headline || s.price) || plain(s.headline) || (s.items || []).some((x) => plain(x));
+  const scenes = t.build(f).filter(Boolean).filter(said)
+    .map((s) => (s.items ? { ...s, items: s.items.filter((x) => plain(x)) } : s));
   return endcard ? [...scenes, { ...ENDCARD }] : scenes;
 }

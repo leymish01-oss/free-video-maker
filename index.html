@@ -22,7 +22,7 @@
   .vmhero .lede strong { color: #fff; }
   .studio { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 400px); gap: 28px; align-items: start; }
   @media (max-width: 860px) { .studio { grid-template-columns: 1fr; } .stage { order: -1; position: static !important; } .vmhero { padding: 24px 18px 20px; border-radius: 20px; } }
-  .stepper { list-style: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; padding: 0; margin: 0 0 16px; }
+  .stepper { list-style: none; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; padding: 0; margin: 0 0 16px; }
   .stepper button { width: 100%; justify-content: flex-start; }
   @media (max-width: 520px) { .stepper button { flex-direction: column; padding: 6px 2px; font-size: 12px; gap: 4px; justify-content: center; } }
   .stepper button { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--muted);
@@ -64,11 +64,27 @@
   .big { font-size: 19px !important; padding: 16px 26px !important; }
   .progress { height: 10px; background: var(--line); border-radius: 999px; overflow: hidden; } .progress i { display: block; height: 100%; width: 0; background: var(--cta, #ff7a2e); transition: width .2s; }
   .stage { position: sticky; top: 16px; display: grid; gap: 10px; }
+  .screen { position: relative; max-width: 400px; }
+  .screen #resultVideo { width: 100%; aspect-ratio: 9 / 16; border-radius: 18px; background: #000; display: block; }
+  .screen #resultVideo.landscape { aspect-ratio: 16 / 9; }
+  .screen .tag { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,.92); color: #0b1f3f; font: 800 12px/1 var(--mono);
+    letter-spacing: .08em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; }
+  .busy { position: absolute; inset: 0; display: grid; align-content: center; gap: 10px; padding: 24px; border-radius: 18px;
+    background: rgba(10,11,20,.78); color: #fff; text-align: center; } .busy .small { color: #d6daec; } .busy p { margin: 0; }
+  .busy #stageLabel { font-weight: 800; font-size: 18px; }
+  .typecards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .typecard { display: grid; gap: 6px; text-align: left; border: 2px solid var(--line); border-radius: 14px; padding: 8px; background: var(--bg);
+    color: var(--ink); font: inherit; cursor: pointer; }
+  .typecard canvas { width: 100%; aspect-ratio: 9 / 16; border-radius: 10px; display: block; background: #000; }
+  .typecard b { font-size: 15px; } .typecard span { font-size: 13px; color: var(--muted); }
+  .typecard[aria-pressed=true] { border-color: var(--navy, #0b1f3f); box-shadow: 0 0 0 3px rgba(11,31,63,.08); }
+  .err-card { border: 2px solid #b42318 !important; background: #fff6f5 !important; color: #3d0a07; }
+  @media (max-width: 520px) { .typecards { grid-template-columns: 1fr 1fr; } }
   #preview { width: 100%; max-width: 400px; aspect-ratio: 9 / 16; border-radius: 18px; background: #000; display: block; box-shadow: 0 24px 60px -28px rgba(10,11,20,.55); }
   #preview.landscape { aspect-ratio: 16 / 9; max-width: 100%; }
   @media (max-width: 860px) { #preview { max-height: 34vh; width: auto; margin: 0 auto; } #preview.landscape { width: 100%; max-height: none; }
     .vmhero .lede { font-size: 15px; } .vmhero { margin: 14px 0; } .stage .small { display: none; }
-    .studio[data-step="1"] .stage { display: none; } /* nothing to preview before the words: the link box comes first */ }
+    .studio[data-step="1"] .stage, .studio[data-step="2"] .stage { display: none; } /* phone: type and link come first */ }
   .small { font-size: 14px; color: var(--muted); }
   .note { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--surface); }
   .pro-box { border: 2px solid var(--cta, #ff7a2e); border-radius: 16px; padding: 16px; background: var(--surface); display: grid; gap: 10px; }
@@ -94,46 +110,62 @@
   <section class="vmhero" aria-labelledby="vmh">
     <div class="eyebrow">Free tool · no sign-up · no watermark</div>
     <h1 id="vmh">Free product video maker, <em>no watermark</em></h1>
-    <p class="lede">Paste your product link, pick a look and a sound, and download your video. Templates for product promos,
-      Black Friday sales and Christmas gift guides. <strong>Your photos and your video never leave your device.</strong></p>
+    <p class="lede">Pick a video type, paste your product link, choose a look and a sound, and download your video. Product
+      promos, Black Friday sales, Christmas gift guides, announcements and tips. <strong>Your photos and your video never leave your device.</strong></p>
   </section>
   <p id="unlockMsg" class="note" role="status" hidden></p>
   <p id="unsupported" class="note" hidden></p>
   <div class="studio">
     <div class="steps">
       <ol class="stepper" aria-label="Steps">
-        <li><button type="button" data-go="1"><b>1</b> Link</button></li>
-        <li><button type="button" data-go="2"><b>2</b> Words</button></li>
-        <li><button type="button" data-go="3"><b>3</b> Look</button></li>
-        <li><button type="button" data-go="4"><b>4</b> Sound</button></li>
-        <li><button type="button" data-go="5"><b>5</b> Make</button></li>
+        <li><button type="button" data-go="1"><b>1</b> Type</button></li>
+        <li><button type="button" data-go="2"><b>2</b> Link</button></li>
+        <li><button type="button" data-go="3"><b>3</b> Words</button></li>
+        <li><button type="button" data-go="4"><b>4</b> Look</button></li>
+        <li><button type="button" data-go="5"><b>5</b> Sound</button></li>
+        <li><button type="button" data-go="6"><b>6</b> Make</button></li>
       </ol>
 
       <section class="step" data-step="1" aria-labelledby="s1h">
-        <h2 id="s1h">Paste your link</h2>
-        <p class="small">We read your page's public details (name, price, photos) and write the first draft for you.</p>
-        <form id="fromUrlForm" class="linkrow">
-          <input id="fromUrlInput" type="url" inputmode="url" placeholder="Paste your product or website link" aria-label="Your product or website link">
-          <button id="fromUrlBtn" class="btn primary" type="submit">✨ Grab my details</button>
-        </form>
-        <p id="fromUrlStatus" class="small" role="status">Use pages you own or have permission to use.</p>
-        <p><button id="typeMyself" class="linkbtn" type="button">No link? Type it myself</button></p>
-        <p id="noServer" class="small" hidden>Type your details in the next step.</p>
+        <h2 id="s1h">What kind of video?</h2>
+        <div id="typeCards" class="typecards" role="group" aria-label="Video type"></div>
       </section>
 
       <section class="step" data-step="2" aria-labelledby="s2h" hidden>
-        <h2 id="s2h">Your words</h2>
-        <label>Video type<select id="template"></select></label>
+        <h2 id="s2h">Paste your link</h2>
+        <p id="linkIntro" class="small">We read your page's public details (name, price, photos) and write the first draft for you.</p>
+        <form id="fromUrlForm" class="panel">
+          <div id="linkBoxes" class="panel"></div>
+          <div id="bfBox" class="grid3" hidden>
+            <label>Discount % <input id="bfPct" type="text" inputmode="numeric" placeholder="e.g. 30"></label>
+            <label>Code (optional) <input id="bfCode" type="text" placeholder="e.g. BF30"></label>
+          </div>
+          <p><button id="fromUrlBtn" class="btn primary big" type="submit">✨ Grab my details</button></p>
+        </form>
+        <p id="fromUrlStatus" class="small" role="status">Use pages you own or have permission to use.</p>
+        <div id="linkError" class="note err-card" role="alert" hidden>
+          <strong>We couldn't read that page.</strong>
+          <p id="linkErrorText" style="margin:6px 0 10px"></p>
+          <button id="typeInstead" class="btn primary" type="button">Type it myself instead</button>
+        </div>
+        <p><button id="typeMyself" class="linkbtn" type="button">No link? Type it myself</button></p>
+        <p id="noServer" class="small" hidden>Type your details in the next step.</p>
+        <div class="navrow"><button class="btn" type="button" data-nav="back">← Back</button><span></span></div>
+      </section>
+
+      <section class="step" data-step="3" aria-labelledby="s3h" hidden>
+        <h2 id="s3h">Your words</h2>
+        <p class="small"><span id="typeName"></span> · <button id="changeType" class="linkbtn" type="button">Change type</button></p>
         <p id="blurb" class="small"></p>
-        <p class="small">Tip: keep each line short; it reads better on a phone.</p>
+        <p class="small">Tip: keep each line short; it reads better on a phone. Grey text is only an example.</p>
         <div id="fields" class="panel"></div>
         <div id="photosRow"><label>Photos<input id="photos" type="file" accept="image/*" multiple></label>
           <p id="photoHint" class="small"></p></div>
         <div class="navrow"><button class="btn" type="button" data-nav="back">← Back</button><button class="btn primary" type="button" data-nav="next">Next: your look →</button></div>
       </section>
 
-      <section class="step" data-step="3" aria-labelledby="s3h" hidden>
-        <h2 id="s3h">Your look</h2>
+      <section class="step" data-step="4" aria-labelledby="s4h" hidden>
+        <h2 id="s4h">Your look</h2>
         <p id="lockNote" class="note small" hidden></p>
         <div id="themes" role="group" aria-label="Video themes"></div>
         <div id="packRow" class="packrow" hidden><span id="packBannerText"></span> <a id="packBanner" class="pbtn" href="#">Get all 8</a></div>
@@ -169,8 +201,8 @@
         <div class="navrow"><button class="btn" type="button" data-nav="back">← Back</button><button class="btn primary" type="button" data-nav="next">Next: your sound →</button></div>
       </section>
 
-      <section class="step" data-step="4" aria-labelledby="s4h" hidden>
-        <h2 id="s4h">Your sound</h2>
+      <section class="step" data-step="5" aria-labelledby="s5h" hidden>
+        <h2 id="s5h">Your sound</h2>
         <div class="cards" role="group" aria-label="Sound">
           <button type="button" class="card-choice" data-sound="none" aria-pressed="true"><b>🎵 Music only</b><span>A music bed under the captions.</span></button>
           <button type="button" class="card-choice" data-sound="ai" aria-pressed="false"><b>🗣️ AI voice + music</b><span>An AI-generated voice reads your lines.</span></button>
@@ -197,16 +229,13 @@
         <div class="navrow"><button class="btn" type="button" data-nav="back">← Back</button><button class="btn primary" type="button" data-nav="next">Next: make it →</button></div>
       </section>
 
-      <section class="step" data-step="5" aria-labelledby="s5h" hidden>
-        <h2 id="s5h">Make my video</h2>
+      <section class="step" data-step="6" aria-labelledby="s6h" hidden>
+        <h2 id="s6h">Make my video</h2>
         <p id="summary" class="small"></p>
         <button class="btn primary big" id="exportBtn" type="button">🎬 Make my video</button>
-        <div id="progressBox" class="panel" hidden style="margin-top:14px">
-          <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
-          <p id="exportStatus" class="small" aria-live="polite"></p>
-        </div>
+        <p id="makeError" class="note err-card" role="alert" hidden></p>
         <div id="result" class="panel" hidden style="margin-top:16px">
-          <video id="resultVideo" controls playsinline></video>
+          <p id="doneLine" class="small" style="margin:0"></p>
           <div id="proBox" class="pro-box" hidden>
             <strong id="proTitle">This preview is stamped.</strong>
             <p class="small" style="margin:0">Unlock <span id="proName"></span> to download it without the stamp. We'll re-make it for you right away.</p>
@@ -228,6 +257,7 @@
             <button class="btn" id="shareLook" type="button">Share this look</button>
             <button class="btn" id="makeAnother" type="button">Make another</button>
           </div>
+          <p class="small" style="margin:0">Want to change something? <button id="editAgain" class="linkbtn" type="button">Edit the words or look</button>, then make it again.</p>
           <div id="buyerNote" class="note" hidden><strong>Thank you for buying Designer themes.</strong> One more thing we do:
             if Google Shopping ever disapproves your products or suspends your Merchant Center account, our
             <a href="/woocommerce/google-merchant-center/?utm_source=video-maker&amp;utm_medium=tool&amp;utm_campaign=vm-buyer">Merchant Center Fix</a>
@@ -253,8 +283,17 @@
     </div>
 
     <div class="stage">
-      <canvas id="preview" width="1080" height="1920" aria-label="Video preview"></canvas>
-      <div class="row"><button class="btn" id="playBtn" type="button">▶ Play</button><span class="small">Length: <span id="dur"></span></span></div>
+      <div class="screen">
+        <canvas id="preview" width="1080" height="1920" aria-label="Video preview"></canvas>
+        <video id="resultVideo" controls playsinline hidden></video>
+        <span id="exampleTag" class="tag">Example</span>
+        <div id="progressBox" class="busy" hidden>
+          <p id="stageLabel">Making your video…</p>
+          <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+          <p id="exportStatus" class="small" aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="row" id="previewRow"><button class="btn" id="playBtn" type="button">▶ Play</button><span class="small">Length: <span id="dur"></span></span></div>
       <p class="small">Free and open source (GPL-3): <a href="https://github.com/leymish01-oss/free-video-maker">source on GitHub</a>.
         Designer themes are a separate paid content pack. Works best in Chrome or Edge on a computer or Android phone.</p>
     </div>

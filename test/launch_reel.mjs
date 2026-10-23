@@ -22,8 +22,8 @@ const FIELDS = {
 const browser = await chromium.launch({ channel: "msedge" });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 await page.goto(url, { waitUntil: "load" });
-await page.evaluate(() => { const t = document.getElementById("template"); t.value = "offer"; t.dispatchEvent(new Event("change")); }); // P-065: steps hide controls
-await page.evaluate(() => window.__vmGo(2));
+await page.evaluate(() => window.__vmType("offer")); // P-066: the type is chosen first
+await page.evaluate(() => window.__vmGo(3));
 for (const [id, v] of Object.entries(FIELDS)) await page.fill(`#fields input[data-id="${id}"]`, v);
 await page.evaluate(() => { const m = document.getElementById("music"); m.value = "upbeat"; m.dispatchEvent(new Event("change")); });
 await page.evaluate(() => { const e = document.getElementById("endcard"); if (e.checked) e.click(); }); // the reel's own last scene already says leymish.com

@@ -45,6 +45,9 @@ const themes = (process.argv.includes("--themes") ? process.argv[process.argv.in
 const look = (i) => page.evaluate((id) => document.querySelector(`.swatch[data-theme="${id}"]`).click(), themes[i % themes.length]); // P-065: in a hidden step
 // 1. Product promo with photos and music, no voice
 const pics = ["product-1.jpg", "product-2.jpg", "product-3.jpg"].map((f) => join(here, "fixtures", f));
+await page.evaluate(() => { window.__vmType("promo"); window.__vmGo(3); }); // P-066: type first; the words are typed, not examples
+for (const [id, v] of Object.entries({ hook: "Meet the *candle* that smells like summer.", name: "Summer Garden Soy Candle", price: "$29",
+  b1: "Hand-poured soy wax", b2: "50-hour clean burn", b3: "Ships free over $60", cta: "Shop now", url: "yourstore.com" })) await page.fill(`#fields input[data-id="${id}"]`, v);
 await page.setInputFiles("#photos", pics);
 await look(0);
 await page.waitForTimeout(500);
