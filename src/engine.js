@@ -11,7 +11,7 @@ const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
 const easeInOut = (x) => (x = clamp(x), x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 
 // the frame being drawn uses one motion style and one font pair (set at the top of drawFrame)
-let M = MOTIONS.smooth, HEAD = FONTS.inter.head;
+let M = MOTIONS.smooth, HEAD = FONTS.inter.head, NOW = 0; // NOW: the frame time, for effects that shimmer
 const span = (len) => len * M.len / 0.45;
 /** Opacity of something entering at `start`: 0..1. */
 const fadeIn = (t, start, len = 0.45) => easeOut((t - start) / span(len));
@@ -89,6 +89,11 @@ function headline(ctx, text, x, y, maxWidth, size, theme, opts = {}) {
         ctx.fillStyle = theme.accent;
         ctx.fillRect(cx - real * 0.1, ly - real * 0.04, ww + joined + real * 0.2, real * 1.04);
         ctx.fillStyle = theme.onAccent;
+      } else if (wd.accent && theme.highlightStyle === "foil") { // gold foil: a bright band sweeps across the word
+        const g = ctx.createLinearGradient(cx, ly, cx + ww, ly + real);
+        const s = clamp(((NOW * 0.55 + cx / 1400) % 1.6) - 0.3, 0, 1);
+        g.addColorStop(0, theme.foil[0]); g.addColorStop(s, theme.foil[1]); g.addColorStop(1, theme.foil[2]);
+        ctx.fillStyle = g;
       } else ctx.fillStyle = wd.accent ? theme.highlight : theme.ink;
       ctx.fillText(wd.w, cx, ly);
       cx += ww + space;
@@ -173,7 +178,7 @@ function scene(ctx, s, lt, W, H, theme, assets) {
 
   if (s.type === "hook" || s.type === "title") {
     if (s.kicker) kicker(ctx, s.kicker, pad, top + lift, portrait ? 34 : 30, theme, enter);
-    headline(ctx, s.headline, pad, top + (s.kicker ? 70 : 0), W - pad * 2, s.type === "hook" ? big * 1.12 : big,
+    headline(ctx, s.headline, pad, top + (s.kicker ? 70 : 0), W - pad * 2, (s.type === "hook" ? big * 1.12 : big) * (s.size || 1),
       theme, { alpha: s.type === "hook" ? 1 : enter, lift: s.type === "hook" ? 0 : lift, maxLines: portrait ? 5 : 3 });
   } else if (s.type === "product") {
     const img = assets.photos[s.photo || 0];
@@ -283,6 +288,20 @@ function background(ctx, th, W, H, t) {
     b.stops.forEach((c, i) => g.addColorStop(i / (b.stops.length - 1), c));
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
+  if (b.type === "bokeh") { // out-of-focus party lights that drift up and twinkle
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < (b.count || 18); i++) {
+      const [c, a] = b.lights[i % b.lights.length];
+      const r = Math.min(W, H) * (0.03 + 0.09 * rnd());
+      const x = W * rnd() + Math.sin(t / 3 + i) * W * 0.015;
+      const y = ((H * rnd() - t * (8 + 14 * rnd())) % (H + 2 * r) + H + 2 * r) % (H + 2 * r) - r;
+      const tw = a * (0.55 + 0.45 * Math.sin(t * 1.4 + i * 1.7));
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, rgba(c, tw)); g.addColorStop(0.7, rgba(c, tw * 0.6)); g.addColorStop(1, rgba(c, 0));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
   if (b.type === "grid") { // a retro horizon grid rolling towards the viewer
     const hz = H * 0.6, vx = W / 2;
     ctx.save(); ctx.strokeStyle = rgba(b.line, 0.42); ctx.lineWidth = 3;
@@ -336,6 +355,7 @@ export function drawFrame(ctx, tl, t, opts) {
   const { width: W, height: H, theme, assets } = opts;
   M = MOTIONS[opts.motion] || MOTIONS.smooth;
   HEAD = (FONTS[opts.font] || FONTS[theme.font] || FONTS.inter).head;
+  NOW = t;
   background(ctx, theme, W, H, t);
   texture(ctx, theme, opts.texture ?? theme.texture, W, H, t);
   const s = tl.find((x) => t >= x.start && t < x.start + x.dur) || tl[tl.length - 1];
@@ -358,6 +378,7 @@ export function drawSwatch(ctx, theme, t, font, motion) {
   const W = ctx.canvas.width, H = ctx.canvas.height, k = W / 360;
   M = MOTIONS[motion] || MOTIONS.smooth;
   HEAD = (FONTS[font] || FONTS[theme.font] || FONTS.inter).head;
+  NOW = t;
   ctx.save(); ctx.scale(k, k);
   background(ctx, theme, 360, H / k, t);
   texture(ctx, theme, theme.texture, 360, H / k, t);

@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Free video maker: no sign-up, no watermark | LeyMish Labs</title>
-<meta name="description" content="Make a short video for your shop or business in your browser: 10 designed themes, motion graphics, captions, music and an optional voice. No sign-up, no watermark, nothing uploaded.">
-<meta name="robots" content="noindex">
+<title>Free product video maker, no watermark | LeyMish Labs</title>
+<meta name="description" content="A free product video maker that runs in your browser: no watermark, no sign-up, nothing uploaded. Templates for product promos and Black Friday sales, captions, music and an optional voice.">
+<meta name="vm-api" content="{{PROAI_URL}}">
 <link rel="canonical" href="{{SITE_URL}}/tools/video-maker/">
 <link rel="preload" href="./fonts/inter-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/style.css">
@@ -16,18 +16,24 @@
   .vmhero .eyebrow { color: #7cecff; }
   .vmhero h1 { color: #fff; font-size: clamp(34px, 5vw, 58px); line-height: 1.02; letter-spacing: -.03em; margin: 10px 0 12px; max-width: 16ch; }
   .vmhero h1 em { font-style: normal; background: linear-gradient(90deg, #7cecff, #ff7be2); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .vmhero .lede { color: #c9cde3; max-width: 56ch; margin: 0 0 22px; }
+  .vmhero .lede { color: #c9cde3; max-width: 60ch; margin: 0 0 22px; }
   .vmhero .lede strong { color: #fff; }
   .themes-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 0 10px; }
   .themes-h b { font-size: 15px; letter-spacing: .02em; }
   .themes-h button { background: none; border: 1px solid rgba(255,255,255,.25); color: #e6e9f7; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
   #themes { display: flex; gap: 12px; overflow-x: auto; padding: 4px 2px 12px; scroll-snap-type: x proximity; scrollbar-width: thin; }
-  .swatch { flex: 0 0 auto; scroll-snap-align: start; display: grid; gap: 7px; padding: 6px; border-radius: 16px; border: 2px solid transparent;
+  .swatch { flex: 0 0 auto; scroll-snap-align: start; display: grid; gap: 6px; padding: 6px; border-radius: 16px; border: 2px solid transparent;
     background: rgba(255,255,255,.06); color: #e6e9f7; font: 600 13px/1.2 var(--sans); cursor: pointer; transition: transform .15s, border-color .15s; }
   .swatch canvas { width: 108px; height: 138px; border-radius: 11px; display: block; }
   .swatch:hover { transform: translateY(-2px); }
   .swatch:focus-visible { outline: 3px solid #7cecff; outline-offset: 2px; }
   .swatch[aria-pressed=true] { border-color: #7cecff; background: rgba(124,236,255,.12); }
+  .swatch .badge { font: 700 10.5px/1 var(--mono); letter-spacing: .04em; font-style: normal; justify-self: start; padding: 3px 6px; border-radius: 999px; }
+  .swatch .badge:empty { display: none; }
+  .swatch .badge.free { background: rgba(124,236,255,.16); color: #9df1ff; }
+  .swatch .badge.pro { background: rgba(255,200,90,.16); color: #ffd67f; }
+  .packrow { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; color: #d8dcef; font-size: 14px; }
+  .pbtn { background: #ffd67f; color: #1d1405; border-radius: 999px; padding: 7px 14px; font-weight: 700; text-decoration: none; }
   .vm { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 420px); gap: 28px; align-items: start; }
   @media (max-width: 860px) { .vm { grid-template-columns: 1fr; } .vm .stage { order: -1; } .vmhero { padding: 30px 18px 20px; border-radius: 20px; } }
   .vm form, .vm .panel { display: grid; gap: 12px; }
@@ -48,6 +54,21 @@
   #resultVideo { width: 100%; max-width: 420px; border-radius: 14px; background: #000; }
   #logoDots i { display: inline-block; width: 18px; height: 18px; border-radius: 50%; margin-right: 4px; vertical-align: middle; border: 1px solid var(--line); }
   input[type=color] { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 2px; }
+  #paywall { border: 0; border-radius: 22px; padding: 22px; max-width: 560px; width: calc(100% - 32px); background: var(--surface); color: var(--ink); }
+  #paywall::backdrop { background: rgba(6,8,16,.62); }
+  .pw { display: grid; grid-template-columns: 120px 1fr; gap: 18px; }
+  .pw canvas { width: 120px; height: 153px; border-radius: 12px; }
+  .pw h2 { margin: 2px 0 8px; } .pw ul { padding-left: 18px; margin: 8px 0; }
+  .pwbtns { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pwrestore { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; display: grid; gap: 8px; }
+  .pwrestore input { padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); font: inherit; }
+  @media (max-width: 520px) { .pw { grid-template-columns: 1fr; } .pw canvas { display: none; } }
+  .gallery { margin: 40px 0 10px; } .gal { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .gal figure { margin: 0; } .gal figure.wide { grid-column: 1 / -1; }
+  .gal video { width: 100%; border-radius: 14px; background: #000; display: block; }
+  .gal figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  @media (max-width: 640px) { .gal { grid-template-columns: 1fr 1fr; } }
+  #faq details { border-bottom: 1px solid var(--line); padding: 10px 0; } #faq summary { font-weight: 700; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -58,12 +79,15 @@
   </header>
   <section class="vmhero" aria-labelledby="vmh">
     <div class="eyebrow">Free tool · no sign-up · no watermark</div>
-    <h1 id="vmh">Make a shop video that looks <em>designed</em>, free</h1>
+    <h1 id="vmh">Free product video maker, <em>no watermark</em></h1>
     <p class="lede">Pick a look, type a few lines, add your photos. Motion graphics, captions, music and an optional voice,
-      made in your browser. <strong>Your photos and your video never leave your device.</strong></p>
+      made in your browser, with templates for product promos, Black Friday sales and Christmas gift guides.
+      <strong>Your photos and your video never leave your device.</strong></p>
     <div class="themes-h"><b>Choose a look</b><button id="copyLook" type="button">Copy a link to this look</button></div>
     <div id="themes" role="group" aria-label="Video themes"></div>
+    <div id="packRow" class="packrow" hidden><span id="packBannerText"></span> <a id="packBanner" class="pbtn" href="#paywall">Get all 8</a></div>
   </section>
+  <p id="unlockMsg" class="note" role="status" hidden></p>
   <p id="unsupported" class="note" hidden></p>
   <div class="vm">
     <form id="form" onsubmit="return false">
@@ -75,6 +99,7 @@
           <p id="photoHint" class="small"></p></div>
       </fieldset>
       <fieldset><legend>Look</legend>
+        <p id="lockNote" class="note small" hidden></p>
         <div id="customBox" class="panel" hidden>
           <div class="grid3">
             <label>Background <input id="c_bg" type="color"></label>
@@ -126,6 +151,10 @@
       <div id="result" class="panel" hidden>
         <video id="resultVideo" controls playsinline></video>
         <p><a class="btn primary" id="download" href="#">Download MP4</a></p>
+        <div id="buyerNote" class="note" hidden><strong>Thank you for buying Designer themes.</strong> One more thing we do:
+          if Google Shopping ever disapproves your products or suspends your Merchant Center account, our
+          <a href="/woocommerce/google-merchant-center/?utm_source=video-maker&amp;utm_medium=tool&amp;utm_campaign=vm-buyer">Merchant Center Fix</a>
+          is US$99, done for you.</div>
         <div class="note">
           <strong>Selling online?</strong> If Google Shopping has disapproved your products or suspended your Merchant
           Center account, our <a id="ctaCheck" href="/woocommerce/merchant-center-check/?utm_source=video-maker&amp;utm_medium=tool&amp;utm_campaign=vm">free Merchant Center check</a>
@@ -137,9 +166,66 @@
       <canvas id="preview" width="1080" height="1920" aria-label="Video preview"></canvas>
       <div class="row"><button class="btn" id="playBtn" type="button">Play</button><span class="small">Length: <span id="dur"></span></span></div>
       <p class="small">Free and open source (GPL-3): <a href="https://github.com/leymish01-oss/free-video-maker">source on GitHub</a>.
-        Works best in Chrome or Edge on a computer or Android phone.</p>
+        Designer themes are a separate paid content pack. Works best in Chrome or Edge on a computer or Android phone.</p>
     </div>
   </div>
+  <section class="gallery" aria-labelledby="madewith">
+    <h2 id="madewith">Made with LeyMish</h2>
+    <p class="small">Each of these was made on this page, in a browser, with the free themes.</p>
+    <div class="gal">
+      <figure><video controls playsinline preload="none" poster="./samples/promo-9x16-music.jpg" src="./samples/promo-9x16-music.mp4"></video><figcaption>Product promo · Sunset Pop · music</figcaption></figure>
+      <figure><video controls playsinline preload="none" poster="./samples/promo-9x16-voice.jpg" src="./samples/promo-9x16-voice.mp4"></video><figcaption>Product promo · Midnight Neon · AI voice</figcaption></figure>
+      <figure><video controls playsinline preload="none" poster="./samples/launch-reel-9x16.jpg" src="./samples/launch-reel-9x16.mp4"></video><figcaption>Offer · Midnight Neon · Snappy motion</figcaption></figure>
+      <figure class="wide"><video controls playsinline preload="none" poster="./samples/promo-16x9-music.jpg" src="./samples/promo-16x9-music.mp4"></video><figcaption>Product promo, 16:9 · Clean Mono</figcaption></figure>
+    </div>
+  </section>
+  <section id="faq">
+    <h2>Questions</h2>
+    <details><summary>Is this product video maker really free?</summary><p>Yes. Making and downloading videos is free:
+      every template, the 4 free themes, your own colours, music, captions, the AI voice and recording your own voice.
+      There's no sign-up and no watermark. Optional Designer themes are US$2 each, or US$5 for all 8 (one-time).</p></details>
+    <details><summary>Is there a watermark?</summary><p>No. There's an optional end card that says "Made free at leymish.com",
+      and you can switch it off before you export.</p></details>
+    <details><summary>Can I make a Black Friday video for free?</summary><p>Yes. Pick the Black Friday sale template, type
+      your discount, what it covers, your code and the deadline, and export a 9:16 or 16:9 MP4. There's also a Christmas
+      gift guide template with three products.</p></details>
+    <details><summary>Are my photos uploaded anywhere?</summary><p>No. Your photos, your logo, your recording and the
+      finished video stay on your device. The page draws and encodes the video in your browser.</p></details>
+    <details><summary>Which browsers work?</summary><p>Chrome and Edge on a computer or an Android phone. Safari 26 and
+      Firefox on a computer may work. Firefox on Android can preview but not export.</p></details>
+    <details><summary>Is the voice a real person?</summary><p>No. It's an AI-generated voice (Kokoro) that runs on your
+      device and is labelled as AI. There's no voice cloning. You can record your own voice instead, or use no voice.</p></details>
+    <details><summary>What are Designer themes?</summary><p>Eight extra looks, including Holiday Glow and Luxury Noir, plus
+      Match my logo, which builds a theme from your logo's colours. Preview them free; unlocking one lets you export with it
+      on this browser. Prices are in US dollars, so your bank may convert. One-time, no subscription, and if a theme doesn't
+      work for you, we refund it (<a href="/terms/#designer-themes">terms</a>).</p></details>
+  </section>
+  <dialog id="paywall" aria-labelledby="pwName">
+    <form method="dialog" class="pw">
+      <canvas id="pwSwatch" width="180" height="230" aria-hidden="true"></canvas>
+      <div>
+        <p class="eyebrow">Designer theme</p>
+        <h2 id="pwName">Theme</h2>
+        <p id="pwSoon" class="note" hidden>Designer themes are coming soon. Until then the 4 free themes and Custom colours
+          export free, with no watermark.</p>
+        <ul class="small">
+          <li>Export any video with this theme, as often as you like, on this browser.</li>
+          <li>Switched devices? Restore it by email below.</li>
+          <li><strong>One-time, no subscription.</strong> Prices in US dollars; your bank may convert.</li>
+          <li>If it doesn't work for you, we refund it (<a href="/terms/#designer-themes">terms</a>).</li>
+        </ul>
+        <p id="pwOnly" class="small"></p>
+        <p class="pwbtns"><a id="pwSingle" class="btn primary" href="#" hidden>Unlock for US$2</a>
+          <a id="pwPack" class="btn" href="#" hidden>All 8 + Match my logo: US$5</a></p>
+        <button id="pwClose" class="btn" value="close">Keep previewing</button>
+      </div>
+    </form>
+    <form id="pwRestore" class="pwrestore">
+      <label>Already bought? Restore by email <input id="pwEmail" type="email" required autocomplete="email"></label>
+      <button class="btn" type="submit">Send restore link</button>
+      <p id="pwRestoreMsg" class="small" role="status"></p>
+    </form>
+  </dialog>
   <footer>{{SITE_FOOTER}}</footer>
 </div>
 <script type="module" src="./app.js"></script>

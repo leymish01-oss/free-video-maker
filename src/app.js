@@ -6,6 +6,7 @@ import { THEMES, THEME_IDS, DEFAULT_THEME, FONTS, MOTIONS, TEXTURES, FONT_FILES,
 import { TEMPLATES, buildScenes } from "./templates.js";
 import { BEDS, renderBed } from "./music.js";
 import { exportMp4, mixAudio, support } from "./export.js";
+import { apiBase, loadPack, canExport, redeem, restore, saveToken, claimedIds } from "./premium.js";
 
 const VOICES = [
   { id: "af_heart", name: "Heart (US, female)" }, { id: "af_bella", name: "Bella (US, female)" },
@@ -57,7 +58,7 @@ function scenes() {
 function theme() {
   if (state.theme === "custom") return customTheme(state.custom.bg, state.custom.ink, state.custom.accent).theme;
   if (state.theme === "logo" && state.logoLook) return state.logoLook;
-  return THEMES.find((x) => x.id === state.theme) || THEMES[0];
+  return THEMES.find((x) => x.id === state.theme) || PACK.themes.find((x) => x.id === state.theme) || THEMES[0];
 }
 const look = () => { const th = theme(); return { theme: th, font: state.font || th.font, motion: state.motion, texture: state.texture || th.texture }; };
 function opts() {
@@ -172,6 +173,7 @@ async function record() {
 // ------------------------------------------------------------------------------------------------------- export
 async function doExport() {
   const btn = $("exportBtn");
+  if (isPremium(state.theme) && !(await canExport(API, state.theme))) { openPaywall(state.theme); return; }
   btn.disabled = true;
   const t0 = performance.now();
   try {
@@ -196,6 +198,7 @@ async function doExport() {
       seconds: Math.round(total), ms: Math.round(secs * 1000), codec: codecs.video,
       theme: state.theme, font: lk.font, motion: lk.motion, texture: lk.texture });
     window.__vmLast = { ms: Math.round(secs * 1000), size: blob.size, seconds: total, codecs, look: { ...lk, theme: lk.theme.id } };
+    $("buyerNote").hidden = !claimedIds().size; // a thank-you for theme buyers, with the Fix offer
   } catch (e) {
     $("exportStatus").textContent = `Sorry, the export failed on this browser: ${e.message}`;
     gtagEvent("vm_export_fail", { browser: browser(), template: state.template, message: String(e.message).slice(0, 90) });
@@ -236,7 +239,9 @@ function load() {
   const q = new URLSearchParams(location.search);
   const pick = (k, ok) => { const v = q.get(k) ?? saved[k]; return v != null && ok(v) ? v : null; };
   const color = (v) => (/^#?[0-9a-f]{6}$/i.test(v || "") ? "#" + v.replace("#", "") : null);
+  const wanted = q.get("theme") ?? saved.theme;
   state.theme = pick("theme", (v) => THEME_IDS.includes(v) || v === "custom") || DEFAULT_THEME;
+  if (wanted && wanted !== state.theme) state.pendingTheme = wanted; // a Designer theme: picked once the pack loads
   if (saved.custom) Object.keys(state.custom).forEach((k) => { state.custom[k] = color(saved.custom[k]) || state.custom[k]; });
   ["bg", "ink", "accent"].forEach((k) => { if (color(q.get(k))) state.custom[k] = color(q.get(k)); });
   state.font = pick("font", (v) => v === "" || v in FONTS) || "";
@@ -244,13 +249,14 @@ function load() {
   state.texture = pick("texture", (v) => v === "" || v in TEXTURES) || "";
 }
 const themeFor = (id) => id === "custom" ? customTheme(state.custom.bg, state.custom.ink, state.custom.accent).theme
-  : id === "logo" ? state.logoLook : THEMES.find((x) => x.id === id);
+  : id === "logo" ? state.logoLook : THEMES.find((x) => x.id === id) || PACK.themes.find((x) => x.id === id);
 function swatchCard(id, name) {
   const b = document.createElement("button");
   b.type = "button"; b.className = "swatch"; b.dataset.theme = id; b.setAttribute("aria-pressed", "false");
   const c = document.createElement("canvas"); c.width = 180; c.height = 230; c.setAttribute("aria-hidden", "true");
   const label = document.createElement("span"); label.textContent = name;
-  b.append(c, label);
+  const badge = document.createElement("em"); badge.className = "badge";
+  b.append(c, label, badge);
   b.addEventListener("click", () => pickTheme(id));
   b.addEventListener("pointerenter", () => { const th = themeFor(id); if (th) live = { ctx: c.getContext("2d"), theme: th }; });
   b.addEventListener("pointerleave", () => { drawSwatches(); setLive(); });
@@ -272,6 +278,13 @@ function pickTheme(id) {
   if (id === "logo" && !state.logoLook) { state.wantLogoLook = true; $("logo").click(); return; }
   state.theme = id;
   swatches.forEach(({ b }, k) => b.setAttribute("aria-pressed", String(k === id)));
+  const locked = isPremium(id) && !claimedIds().has(id);
+  $("lockNote").hidden = !locked;
+  if (locked) {
+    $("lockNote").textContent = PACK.enabled ? `Previewing ${themeName(id)}, a Designer theme: unlock it for US$2 (or all 8 for US$5) to export.`
+      : `Previewing ${themeName(id)}, a Designer theme. Designer themes are coming soon; the free themes and Custom colours export now.`;
+    gtagEvent("vm_premium_preview", { theme: id });
+  }
   $("customBox").hidden = id !== "custom";
   const th = theme();
   $("fontDefault").textContent = `Theme's own (${FONTS[th.font].name})`;
@@ -303,6 +316,7 @@ function initLook() {
   THEMES.forEach((t) => row.appendChild(swatchCard(t.id, t.name)));
   row.appendChild(swatchCard("custom", "Custom"));
   row.appendChild(swatchCard("logo", "Match my logo"));
+  badges();
   Object.entries(FONTS).forEach(([k, f]) => $("font").add(new Option(f.name, k)));
   Object.entries(MOTIONS).forEach(([k, m]) => $("motion").add(new Option(m.name, k)));
   Object.entries(TEXTURES).forEach(([k, n]) => $("texture").add(new Option(n, k)));
@@ -322,6 +336,81 @@ function initLook() {
   pickTheme(state.theme);
 }
 
+// ------------------------------------------------------------------------------------------- the Designer themes
+// Optional paid themes (a separate content pack, not part of this program): previews are free, export needs an unlock.
+const API = apiBase();
+let PACK = { enabled: false, themes: [], links: {}, prices: { single: 2, pack: 5, currency: "USD" } };
+const isPremium = (id) => !!API && PACK.loaded && (id === "logo" || PACK.themes.some((x) => x.id === id));
+const themeName = (id) => (id === "logo" ? "Match my logo" : (themeFor(id) || {}).name || id);
+
+function badges() {
+  const owned = claimedIds();
+  swatches.forEach(({ b }, id) => {
+    const el = b.querySelector(".badge");
+    if (!isPremium(id)) { el.textContent = PACK.loaded ? "FREE" : ""; el.className = "badge free"; return; }
+    el.className = "badge pro";
+    el.textContent = owned.has(id) ? "Unlocked" : id === "logo" ? "PRO · in the $5 pack" : PACK.enabled ? "PRO · $2" : "PRO · soon";
+    if (!owned.has(id)) el.prepend(Object.assign(document.createElement("span"), { className: "lock", textContent: "🔒 " }));
+  });
+}
+function checkoutLink(item) { return PACK.enabled && PACK.links[item] ? PACK.links[item] : null; }
+
+function openPaywall(id) {
+  const d = $("paywall"), th = themeFor(id);
+  $("pwName").textContent = themeName(id);
+  const single = id !== "logo" && checkoutLink(id), pack = checkoutLink("pack");
+  $("pwSingle").hidden = !single; $("pwPack").hidden = !pack; $("pwSoon").hidden = PACK.enabled;
+  if (single) { $("pwSingle").href = single; $("pwSingle").textContent = `Unlock ${themeName(id)}: US$${PACK.prices.single}`; }
+  if (pack) $("pwPack").href = pack;
+  $("pwOnly").textContent = id === "logo" ? "Match my logo comes with the pack." : "";
+  if (th) drawSwatch($("pwSwatch").getContext("2d"), th, 1.2, state.font, state.motion);
+  $("pwRestoreMsg").textContent = "";
+  try { d.showModal(); } catch (e) { d.setAttribute("open", ""); }
+  (["pwSingle", "pwPack", "pwClose"].map($).find((x) => !x.hidden) || d).focus(); // not the small terms link
+  gtagEvent("vm_paywall_view", { theme: id, enabled: PACK.enabled });
+}
+
+async function initPack() {
+  $("pwClose").addEventListener("click", () => $("paywall").close());
+  ["pwSingle", "pwPack", "packBanner"].forEach((k) => $(k).addEventListener("click", (e) => {
+    const item = k === "pwSingle" ? state.theme : "pack";
+    if (k === "packBanner" && !checkoutLink("pack")) { e.preventDefault(); openPaywall(isPremium(state.theme) ? state.theme : PACK.themes[0]?.id || "logo"); return; }
+    gtagEvent("vm_checkout_click", { item });
+  }));
+  $("pwRestore").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try { await restore(API, $("pwEmail").value.trim()); $("pwRestoreMsg").textContent = "If that email bought Designer themes, a restore link is on its way. Check your inbox (and spam)."; }
+    catch (err) { $("pwRestoreMsg").textContent = `Sorry, that didn't work: ${err.message}`; }
+  });
+  const pack = await loadPack(API);
+  if (!pack) return; // no server (e.g. a copy of the open-source tool): free themes only
+  PACK = { ...PACK, ...pack, loaded: true };
+  const row = $("themes"), logoCard = swatches.get("logo").b;
+  PACK.themes.forEach((t) => row.insertBefore(swatchCard(t.id, t.name), logoCard));
+  $("packRow").hidden = false;
+  if (checkoutLink("pack")) $("packBanner").href = checkoutLink("pack");
+  $("packBannerText").textContent = PACK.enabled ? `Designer themes: US$${PACK.prices.single} each, or all 8 plus Match my logo for US$${PACK.prices.pack}. One-time, no subscription.`
+    : "Designer themes: 8 more looks plus Match my logo, coming soon. Preview them now; the free themes and Custom colours export free.";
+  $("packBanner").textContent = PACK.enabled ? `Get all 8 for US$${PACK.prices.pack}` : "What you'll get";
+  drawSwatches(); badges();
+  const q = new URLSearchParams(location.search);
+  if (q.get("restore")) { saveToken(q.get("restore")); thank("restored"); }
+  if (q.get("unlock")) {
+    try { const ids = await redeem(API, q.get("unlock")); gtagEvent("vm_unlock_ok", { count: ids.length }); thank("bought", ids); }
+    catch (e) { $("unlockMsg").hidden = false; $("unlockMsg").textContent = `We couldn't confirm that payment yet (${e.message}). Refresh in a minute, or use Restore by email in the unlock window.`; }
+  }
+  if (q.get("restore") || q.get("unlock")) { q.delete("restore"); q.delete("unlock"); try { history.replaceState(null, "", `${location.pathname}?${q}`); } catch (e) { /* sandboxed */ } }
+  if (state.pendingTheme && themeFor(state.pendingTheme)) pickTheme(state.pendingTheme); else pickTheme(state.theme);
+  badges();
+}
+function thank(kind, ids = []) {
+  const n = ids.filter((i) => i !== "logo").length;
+  $("unlockMsg").hidden = false;
+  $("unlockMsg").textContent = kind === "restored" ? "Your Designer themes are restored on this browser."
+    : `Thank you! ${n === 8 ? "All 8 Designer themes and Match my logo are" : n === 1 ? `${themeName(ids[0])} is` : `${n} themes are`} unlocked on this browser. Your Stripe receipt is your proof of purchase; use Restore by email on another device.`;
+  badges();
+}
+
 // ---------------------------------------------------------------------------------------------------- wiring
 async function readImage(file) {
   const img = new Image();
@@ -330,6 +419,7 @@ async function readImage(file) {
   return img;
 }
 function init() {
+  initPack();
   Object.entries(TEMPLATES).forEach(([k, t]) => $("template").add(new Option(t.name, k)));
   VOICES.forEach((v) => $("voice").add(new Option(v.name, v.id)));
   Object.entries(BEDS).forEach(([k, b]) => $("music").add(new Option(b.name, k)));

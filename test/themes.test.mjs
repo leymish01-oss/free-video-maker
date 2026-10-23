@@ -11,7 +11,7 @@ let failed = 0;
 const check = (ok, msg) => { if (!ok) { failed++; console.log("FAIL", msg); } };
 
 // 1. the presets
-check(THEMES.length === 10, `10 presets (got ${THEMES.length})`);
+check(THEMES.length === 4, `4 free presets (got ${THEMES.length})`);
 check(new Set(THEMES.map((t) => t.id)).size === THEMES.length, "theme ids are unique");
 for (const t of THEMES) {
   for (const k of ["name", "bg", "surface", "ink", "muted", "accent", "highlight", "onAccent", "caption", "pill", "endcard", "font", "texture"]) check(t[k] != null, `${t.id}: has ${k}`);

@@ -35,8 +35,10 @@ export function ensure(c, on, min) {
 const bestOn = (c) => (contrast("#ffffff", c) >= contrast("#000000", c) ? "#ffffff" : "#000000"); // one of them always reaches 4.58:1
 
 // ------------------------------------------------------------------------------------------------------- the themes
-// bg.type: solid | linear (stops, angle) | mesh (base + drifting blobs) | grid (retro horizon grid)
-// pill: solid | outline | glow | tag | soft      endcard: center | stripe | frame      highlightStyle: color | box
+// The 4 free themes (dark, colourful, light mono, warm light). The 8 "Designer themes" are a separate paid content pack,
+// not part of this GPL program: the page loads them from our server for preview and unlocks them for export.
+// bg.type: solid | linear (stops, angle) | mesh (base + drifting blobs) | grid (retro horizon grid) | bokeh (glowing lights)
+// pill: solid | outline | glow | tag | soft   endcard: center | stripe | frame   highlightStyle: color | box | foil
 export const THEMES = [
   { id: "midnight-neon", name: "Midnight Neon", font: "space", texture: "grain",
     bg: { type: "mesh", base: "#07080f", blobs: [["#00e5ff", 0.2], ["#ff2bd6", 0.2]] },
@@ -46,22 +48,6 @@ export const THEMES = [
     bg: { type: "linear", angle: 150, stops: ["#a3263f", "#77258c", "#3d1d93"] },
     surface: "#5c2a8f", ink: "#fff5e6", muted: "#ffeedd", accent: "#ffd27a", highlight: "#ffd27a", onAccent: "#3a1240",
     caption: { bg: "rgba(30,8,40,0.72)", ink: "#fff8ee" }, pill: "solid", endcard: "center", radius: 40 },
-  { id: "ocean-calm", name: "Ocean Calm", font: "inter", texture: "shapes",
-    bg: { type: "linear", angle: 180, stops: ["#0a3640", "#0d4d57", "#08303a"] },
-    surface: "#125b66", ink: "#eaf7f4", muted: "#b7dcd5", accent: "#7fd8c3", highlight: "#a6f0de", onAccent: "#052a2a",
-    caption: { bg: "rgba(3,25,30,0.74)", ink: "#f2fffb" }, pill: "soft", endcard: "center", radius: 36 },
-  { id: "forest-fresh", name: "Forest Fresh", font: "poppins", texture: "grain",
-    bg: { type: "mesh", base: "#0e2a1c", blobs: [["#2f7a45", 0.35], ["#b8f04a", 0.08]] },
-    surface: "#173d29", ink: "#f2f9ec", muted: "#c3d9b8", accent: "#b8f04a", highlight: "#c8ff5c", onAccent: "#13240b",
-    caption: { bg: "rgba(6,22,13,0.76)", ink: "#ffffff" }, pill: "tag", endcard: "stripe", radius: 20 },
-  { id: "luxe-gold", name: "Luxe Gold", font: "playfair", texture: "grain",
-    bg: { type: "mesh", base: "#121212", blobs: [["#c9a44c", 0.12], ["#6b5a33", 0.18]] },
-    surface: "#1d1c1a", ink: "#f6f1e6", muted: "#cbbf9f", accent: "#d9b871", highlight: "#e8cb8a", onAccent: "#1a1408",
-    caption: { bg: "rgba(10,10,10,0.8)", ink: "#f6f1e6" }, pill: "outline", endcard: "frame", radius: 6 },
-  { id: "candy", name: "Candy", font: "poppins", texture: "shapes",
-    bg: { type: "linear", angle: 135, stops: ["#ffd6e8", "#ffe9f2", "#c9f7e4"] },
-    surface: "#ffffff", ink: "#111111", muted: "#4a3a44", accent: "#ff4fa3", highlight: "#c2185b", kicker: "#ad1457", onAccent: "#111111",
-    caption: { bg: "rgba(17,17,17,0.86)", ink: "#ffffff" }, pill: "tag", endcard: "stripe", radius: 44 },
   { id: "clean-mono", name: "Clean Mono", font: "inter", texture: "none",
     bg: { type: "solid", color: "#ffffff" },
     surface: "#f2f2f2", ink: "#0a0a0a", muted: "#555555", accent: "#d40500", highlight: "#d40500", onAccent: "#ffffff",
@@ -70,14 +56,6 @@ export const THEMES = [
     bg: { type: "linear", angle: 170, stops: ["#f1e5d1", "#e8d6bb"] },
     surface: "#fbf4e8", ink: "#2b1d14", muted: "#465020", accent: "#a8481f", highlight: "#9c3f1a", onAccent: "#ffffff",
     caption: { bg: "rgba(43,29,20,0.86)", ink: "#fbf4e8" }, pill: "solid", endcard: "frame", radius: 18 },
-  { id: "retro-80s", name: "Retro 80s", font: "bebas", texture: "none",
-    bg: { type: "grid", stops: ["#170a2c", "#2d0e4f", "#4a1257"], line: "#ff7a18" },
-    surface: "#2a0f48", ink: "#fff4e6", muted: "#f3c9a8", accent: "#ff7a18", highlight: "#ffb347", onAccent: "#170a2c",
-    caption: { bg: "rgba(18,6,34,0.8)", ink: "#fff4e6" }, pill: "tag", endcard: "stripe", radius: 8 },
-  { id: "bold-brand", name: "Bold Brand", font: "space", texture: "none",
-    bg: { type: "solid", color: "#ffd400" },
-    surface: "#ffe14d", ink: "#0a0a0a", muted: "#3a3200", accent: "#0a0a0a", highlight: "#0a0a0a", highlightStyle: "box", onAccent: "#ffd400",
-    caption: { bg: "rgba(10,10,10,0.9)", ink: "#ffd400" }, pill: "solid", endcard: "stripe", radius: 0 },
 ];
 export const THEME_IDS = THEMES.map((t) => t.id);
 export const DEFAULT_THEME = "midnight-neon";
@@ -117,6 +95,7 @@ export function surfaces(t) {
   const out = [...base];
   if (b.type === "mesh") b.blobs.forEach(([c, a]) => base.forEach((x) => out.push(over(rgba(c, a), x))));
   else base.forEach((x) => out.push(over(rgba(t.accent, glowAlpha(t)), x)));
+  if (b.type === "bokeh") b.lights.forEach(([c, a]) => base.forEach((x) => out.push(over(rgba(c, a), x))));
   return out;
 }
 export const glowAlpha = (t) => (lum(surfaces0(t)) < 0.4 ? 0.14 : 0.1);
@@ -132,7 +111,8 @@ export function audit(t) {
     caption: worst(t.caption.ink, captionOn), // the kinetic caption over its box
     muted: worst(t.muted), // the end card's small line
     onAccent: contrast(t.onAccent, t.accent), // text on a solid pill / box highlight / check mark
-    highlight: t.highlightStyle === "box" ? contrast(t.onAccent, t.accent) : worst(t.highlight), // large headline words
+    highlight: t.highlightStyle === "box" ? contrast(t.onAccent, t.accent) // large headline words (foil: every shade)
+      : Math.min(...[t.highlight, ...(t.highlightStyle === "foil" ? t.foil : [])].map((c) => worst(c))),
     kicker: worst(t.kicker || t.accent), // large bold label
     surfaceInk: contrast(t.ink, t.surface), // text on a stripe end card or a points chip
   };

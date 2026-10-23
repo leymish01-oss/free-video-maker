@@ -69,7 +69,54 @@ export const TEMPLATES = {
         say: `${plain(f.when)}. ${spokenUrl(f.url)}.`, dur: 3 },
     ],
   },
+  blackfriday: { // seasonal (P-063): Black Friday / Cyber Monday
+    name: "Black Friday sale",
+    blurb: "The discount, what it covers, the code and the deadline. Looks best with Holiday Glow, Bold Brand or Midnight Neon.",
+    fields: [
+      { id: "hook", label: "Opening line (the hook)", value: "*Black Friday* is here." },
+      { id: "pct", label: "The discount", value: "40% off" },
+      { id: "what", label: "What it covers", value: "Every product, sitewide" },
+      { id: "code", label: "Code or detail (optional)", value: "Use code BF40 at checkout" },
+      { id: "until", label: "Countdown line", value: "Ends Monday at midnight" },
+      { id: "cta", label: "Call to action", value: "Shop the sale" },
+      { id: "url", label: "Web address or @handle", value: "yourstore.com" },
+    ],
+    photos: 1,
+    build: (f) => [
+      { type: "hook", kicker: "Black Friday", headline: f.hook, line: plain(f.hook), dur: 2.2 },
+      { type: "title", kicker: plain(f.what), headline: `*${plain(f.pct)}*`, size: 2.1, line: `${plain(f.pct)}. ${plain(f.what)}.`,
+        say: `${spokenPercent(f.pct)}. ${plain(f.what)}.`, dur: 3 },
+      ...(f._photos ? [{ type: "photo", headline: `*${plain(f.pct)}*`, photo: 0, line: "", dur: 2.2 }] : []),
+      ...(plain(f.code) ? [{ type: "title", kicker: "How", headline: f.code, line: plain(f.code) + ".", dur: 2.8 }] : []),
+      { type: "title", kicker: "Hurry", headline: `*${plain(f.until)}*`, size: 1.15, line: plain(f.until) + ".", dur: 2.6 },
+      { type: "cta", headline: `*${f.cta}*`, button: f.url, line: `${plain(f.cta)} at ${plain(f.url)}.`,
+        say: `${plain(f.cta)} at ${spokenUrl(f.url)}.`, dur: 3 },
+    ],
+  },
+  giftguide: { // seasonal (P-063): a Christmas gift guide with three products
+    name: "Christmas gift guide",
+    blurb: "Three gift picks with prices, and the last order date for Christmas delivery.",
+    fields: [
+      { id: "hook", label: "Opening line (the hook)", value: "Our Christmas *gift guide*: 3 picks they'll love." },
+      { id: "g1", label: "Gift 1", value: "Summer Garden Soy Candle" }, { id: "p1", label: "Gift 1 price", value: "$29" },
+      { id: "g2", label: "Gift 2", value: "Linen Tea Towel Set" }, { id: "p2", label: "Gift 2 price", value: "$34" },
+      { id: "g3", label: "Gift 3", value: "Ceramic Pour-Over Mug" }, { id: "p3", label: "Gift 3 price", value: "$42" },
+      { id: "cta", label: "Deadline / call to action", value: "Order by Dec 18 for Christmas delivery" },
+      { id: "url", label: "Web address or @handle", value: "yourstore.com" },
+    ],
+    photos: 3,
+    build: (f) => [
+      { type: "hook", kicker: "Gift guide", headline: f.hook, line: plain(f.hook), dur: 2.4 },
+      ...[1, 2, 3].map((n) => ({ type: "product", headline: f[`g${n}`], price: f[`p${n}`], photo: n - 1,
+        line: `${plain(f[`g${n}`])}. ${plain(f[`p${n}`])}`, say: `${plain(f[`g${n}`])}. ${spokenPrice(f[`p${n}`])}`, dur: 3 })),
+      { type: "cta", headline: `*${f.cta}*`, button: f.url, line: `${plain(f.cta)}. ${plain(f.url)}`,
+        say: `${plain(f.cta)}. ${spokenUrl(f.url)}.`, dur: 3.4 },
+    ],
+  },
 };
+
+/** "40% off" -> "40 percent off" for the voice. */
+export function spokenPercent(p) { return plain(p).replace(/(\d+)\s*%/g, "$1 percent"); }
 
 export const ENDCARD = { type: "endcard", headline: "Made free at *leymish.com*", small: "No sign-up. Made on your device.", line: "", dur: 2.2 };
 
