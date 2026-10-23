@@ -13,4 +13,12 @@ const common = { bundle: true, format: "esm", minify: true, target: ["chrome113"
 await build({ ...common, entryPoints: [join(here, "src", "app.js")], outfile: join(out, "app.js") });
 await build({ ...common, entryPoints: [join(here, "src", "voice-worker.js")], outfile: join(out, "voice-worker.js") });
 copyFileSync(join(here, "index.html"), join(out, "index.html"));
+// the theme fonts: self-hosted Latin woff2 files from @fontsource (OFL), with their licences
+const { FONT_FILES } = await import("./src/themes.js");
+mkdirSync(join(out, "fonts"), { recursive: true });
+for (const [, file] of FONT_FILES) {
+  const pkg = file.replace(/-latin-\d+-normal\.woff2$/, "");
+  copyFileSync(join(here, "node_modules", "@fontsource", pkg, "files", file), join(out, "fonts", file));
+  copyFileSync(join(here, "node_modules", "@fontsource", pkg, "LICENSE"), join(out, "fonts", `${pkg}-OFL.txt`));
+}
 console.log(`built -> ${out}`);

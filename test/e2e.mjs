@@ -1,5 +1,6 @@
 // End-to-end check: open the built page, make videos the way a visitor would, save the MP4s, report timings.
 //   node test/e2e.mjs http://localhost:8765/tools/video-maker/ <out-dir> [--voice] [--channel msedge] [--cpu-only]
+//     [--themes a,b,c]  one theme per sample (default: sunset-pop, clean-mono, midnight-neon)
 // Uses the Playwright copy the repo's QA suite already installs. SPDX-License-Identifier: GPL-3.0-or-later
 import { createRequire } from "node:module";
 import { writeFileSync, mkdirSync, readdirSync } from "node:fs";
@@ -40,17 +41,22 @@ async function exportNow(name) {
 }
 
 const results = {};
+const themes = (process.argv.includes("--themes") ? process.argv[process.argv.indexOf("--themes") + 1] : "sunset-pop,clean-mono,midnight-neon").split(",");
+const look = (i) => page.click(`.swatch[data-theme="${themes[i % themes.length]}"]`);
 // 1. Product promo with photos and music, no voice
 const pics = ["product-1.jpg", "product-2.jpg", "product-3.jpg"].map((f) => join(here, "fixtures", f));
 await page.setInputFiles("#photos", pics);
+await look(0);
 await page.waitForTimeout(500);
 results.promo_music = await exportNow("promo-9x16-music");
 // 2. The same in 16:9
 await page.selectOption("#aspect", "16x9");
+await look(1);
 await page.waitForTimeout(300);
 results.promo_16x9 = await exportNow("promo-16x9-music");
 await page.selectOption("#aspect", "9x16");
 if (voice) { // 3. AI voice (downloads the model the first time) then export
+  await look(2);
   await page.check("input[name=voiceMode][value=ai]");
   const t0 = Date.now();
   await page.click("#voiceBtn");

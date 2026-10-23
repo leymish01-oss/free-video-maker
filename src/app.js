@@ -1,7 +1,8 @@
 // Free Video Maker: the page. Everything runs here, on the visitor's device: photos are read locally, the voice runs
 // in a worker, the MP4 is encoded with WebCodecs. Nothing is uploaded.
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { SIZES, drawFrame, timeline, totalDuration, makeTheme } from "./engine.js";
+import { SIZES, drawFrame, drawSwatch, timeline, totalDuration } from "./engine.js";
+import { THEMES, THEME_IDS, DEFAULT_THEME, FONTS, MOTIONS, TEXTURES, FONT_FILES, customTheme, logoColors, logoTheme } from "./themes.js";
 import { TEMPLATES, buildScenes } from "./templates.js";
 import { BEDS, renderBed } from "./music.js";
 import { exportMp4, mixAudio, support } from "./export.js";
@@ -19,7 +20,9 @@ const browser = () => { const u = navigator.userAgent; return /Edg\//.test(u) ? 
   : /Chrome\//.test(u) ? (/Android/.test(u) ? "chrome-android" : "chrome") : /Safari\//.test(u) ? "safari" : "other"; };
 
 const state = {
-  template: "promo", values: {}, photos: [], logo: null, aspect: "9x16", bg: "#16181d", accent: "#4cc38a",
+  template: "promo", values: {}, photos: [], logo: null, aspect: "9x16",
+  theme: DEFAULT_THEME, custom: { bg: "#16181d", ink: "#f7f6f2", accent: "#4cc38a" }, logoLook: null, logoColors: null,
+  font: "", motion: "smooth", texture: "", // "" = the theme's own font / texture
   voiceMode: "none", voice: "af_heart", speed: 1, clips: {}, recording: null, bed: "bright", endcard: true,
   captions: true, playing: false, t0: 0,
 };
@@ -51,9 +54,15 @@ function scenes() {
   });
 }
 
+function theme() {
+  if (state.theme === "custom") return customTheme(state.custom.bg, state.custom.ink, state.custom.accent).theme;
+  if (state.theme === "logo" && state.logoLook) return state.logoLook;
+  return THEMES.find((x) => x.id === state.theme) || THEMES[0];
+}
+const look = () => { const th = theme(); return { theme: th, font: state.font || th.font, motion: state.motion, texture: state.texture || th.texture }; };
 function opts() {
   const [width, height] = SIZES[state.aspect];
-  return { width, height, theme: makeTheme(state.bg, state.accent), assets: { photos: state.photos, logo: state.logo }, captions: state.captions };
+  return { width, height, ...look(), assets: { photos: state.photos, logo: state.logo }, captions: state.captions };
 }
 
 // ---------------------------------------------------------------------------------------------------- the preview
@@ -74,6 +83,7 @@ function frame() {
   if (t > total) { state.t0 = performance.now(); t = 0; stopAudio(); if (state.playing) playAudio(); }
   drawFrame(ctx, tl, t, opts());
   $("dur").textContent = `${total.toFixed(1)} s`;
+  if (live) drawSwatch(live.ctx, live.theme, (performance.now() / 1000) % 1.6, state.font, state.motion);
   requestAnimationFrame(frame);
 }
 async function playAudio() { // what the export will sound like, mixed live
@@ -166,6 +176,7 @@ async function doExport() {
   const t0 = performance.now();
   try {
     stopAudio();
+    await fontsReady;
     const tl = timeline(scenes());
     const total = totalDuration(tl);
     $("exportStatus").textContent = "Mixing the sound…";
@@ -180,9 +191,11 @@ async function doExport() {
     const a = $("download");
     a.href = url; a.download = `video-${state.aspect}-${Date.now()}.mp4`;
     $("exportStatus").textContent = `Done in ${secs.toFixed(1)} s: ${(blob.size / 1e6).toFixed(1)} MB, ${total.toFixed(1)} s, ${codecs.video.toUpperCase()}${codecs.audio ? " + " + codecs.audio.toUpperCase() : ""}.`;
+    const lk = look();
     gtagEvent("vm_export_ok", { template: state.template, aspect: state.aspect, voice: state.voiceMode, browser: browser(),
-      seconds: Math.round(total), ms: Math.round(secs * 1000), codec: codecs.video });
-    window.__vmLast = { ms: Math.round(secs * 1000), size: blob.size, seconds: total, codecs };
+      seconds: Math.round(total), ms: Math.round(secs * 1000), codec: codecs.video,
+      theme: state.theme, font: lk.font, motion: lk.motion, texture: lk.texture });
+    window.__vmLast = { ms: Math.round(secs * 1000), size: blob.size, seconds: total, codecs, look: { ...lk, theme: lk.theme.id } };
   } catch (e) {
     $("exportStatus").textContent = `Sorry, the export failed on this browser: ${e.message}`;
     gtagEvent("vm_export_fail", { browser: browser(), template: state.template, message: String(e.message).slice(0, 90) });
@@ -190,6 +203,123 @@ async function doExport() {
   } finally {
     btn.disabled = false;
   }
+}
+
+// ------------------------------------------------------------------------------------------------------ the look
+// Fonts are self-hosted next to the page; the canvas waits for them before an export.
+const fontsReady = Promise.all(FONT_FILES.map(([family, file, weight]) => {
+  try {
+    const f = new FontFace(family, `url(./fonts/${file})`, { weight: String(weight) });
+    document.fonts.add(f);
+    return f.load().catch(() => null);
+  } catch (e) { return null; }
+})).then(() => drawSwatches());
+
+let live = null; // the swatch that loops: the one under the pointer, else the chosen one
+const swatches = new Map();
+const SAVE = "vm-look";
+function save() {
+  try { localStorage.setItem(SAVE, JSON.stringify({ theme: state.theme === "logo" ? DEFAULT_THEME : state.theme, custom: state.custom, font: state.font, motion: state.motion, texture: state.texture })); }
+  catch (e) { /* private mode: the look just isn't remembered */ }
+  const q = new URLSearchParams(location.search);
+  ["theme", "font", "motion", "texture", "bg", "ink", "accent"].forEach((k) => q.delete(k));
+  if (state.theme !== "logo") q.set("theme", state.theme);
+  if (state.theme === "custom") ["bg", "ink", "accent"].forEach((k) => q.set(k, state.custom[k].slice(1)));
+  if (state.font) q.set("font", state.font);
+  if (state.motion !== "smooth") q.set("motion", state.motion);
+  if (state.texture) q.set("texture", state.texture);
+  try { history.replaceState(null, "", `${location.pathname}?${q}`); } catch (e) { /* sandboxed */ }
+}
+function load() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(SAVE) || "{}") || {}; } catch (e) { saved = {}; }
+  const q = new URLSearchParams(location.search);
+  const pick = (k, ok) => { const v = q.get(k) ?? saved[k]; return v != null && ok(v) ? v : null; };
+  const color = (v) => (/^#?[0-9a-f]{6}$/i.test(v || "") ? "#" + v.replace("#", "") : null);
+  state.theme = pick("theme", (v) => THEME_IDS.includes(v) || v === "custom") || DEFAULT_THEME;
+  if (saved.custom) Object.keys(state.custom).forEach((k) => { state.custom[k] = color(saved.custom[k]) || state.custom[k]; });
+  ["bg", "ink", "accent"].forEach((k) => { if (color(q.get(k))) state.custom[k] = color(q.get(k)); });
+  state.font = pick("font", (v) => v === "" || v in FONTS) || "";
+  state.motion = pick("motion", (v) => v in MOTIONS) || "smooth";
+  state.texture = pick("texture", (v) => v === "" || v in TEXTURES) || "";
+}
+const themeFor = (id) => id === "custom" ? customTheme(state.custom.bg, state.custom.ink, state.custom.accent).theme
+  : id === "logo" ? state.logoLook : THEMES.find((x) => x.id === id);
+function swatchCard(id, name) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "swatch"; b.dataset.theme = id; b.setAttribute("aria-pressed", "false");
+  const c = document.createElement("canvas"); c.width = 180; c.height = 230; c.setAttribute("aria-hidden", "true");
+  const label = document.createElement("span"); label.textContent = name;
+  b.append(c, label);
+  b.addEventListener("click", () => pickTheme(id));
+  b.addEventListener("pointerenter", () => { const th = themeFor(id); if (th) live = { ctx: c.getContext("2d"), theme: th }; });
+  b.addEventListener("pointerleave", () => { drawSwatches(); setLive(); });
+  swatches.set(id, { b, c });
+  return b;
+}
+function drawSwatches() {
+  swatches.forEach(({ c }, id) => {
+    const th = themeFor(id), x = c.getContext("2d");
+    if (th) { drawSwatch(x, th, 1.2, state.font, state.motion); return; }
+    x.fillStyle = "#1b1e2c"; x.fillRect(0, 0, c.width, c.height);
+    x.fillStyle = "#d6daec"; x.font = "600 15px system-ui, sans-serif"; x.textAlign = "center";
+    x.fillText("Upload your logo", c.width / 2, c.height / 2 - 8); x.fillText("to use its colours", c.width / 2, c.height / 2 + 14);
+    x.textAlign = "left";
+  });
+}
+function setLive() { const s = swatches.get(state.theme), th = themeFor(state.theme); live = s && th ? { ctx: s.c.getContext("2d"), theme: th } : null; }
+function pickTheme(id) {
+  if (id === "logo" && !state.logoLook) { state.wantLogoLook = true; $("logo").click(); return; }
+  state.theme = id;
+  swatches.forEach(({ b }, k) => b.setAttribute("aria-pressed", String(k === id)));
+  $("customBox").hidden = id !== "custom";
+  const th = theme();
+  $("fontDefault").textContent = `Theme's own (${FONTS[th.font].name})`;
+  $("textureDefault").textContent = `Theme's own (${TEXTURES[th.texture]})`;
+  customNote();
+  drawSwatches(); setLive(); save();
+}
+function customNote() {
+  if (state.theme !== "custom") { $("customNote").textContent = ""; return; }
+  const { adjusted } = customTheme(state.custom.bg, state.custom.ink, state.custom.accent);
+  $("customNote").textContent = adjusted ? "We nudged the text or accent colour so every caption stays readable (WCAG AA)." : "Every caption passes WCAG AA contrast.";
+}
+function readLogoColors() {
+  state.logoLook = null; state.logoColors = null;
+  if (state.logo) {
+    const c = document.createElement("canvas"); c.width = c.height = 64;
+    const x = c.getContext("2d"); x.drawImage(state.logo, 0, 0, 64, 64);
+    state.logoColors = logoColors(x.getImageData(0, 0, 64, 64).data);
+    const t = logoTheme(state.logoColors);
+    state.logoLook = t ? { ...t, id: "logo", name: "Match my logo" } : null;
+  }
+  $("logoDots").innerHTML = (state.logoColors || []).slice(0, 3).map((x) => `<i style="background:${x.color}" title="${x.color}"></i>`).join("");
+  if (state.theme === "logo" && !state.logoLook) pickTheme(DEFAULT_THEME);
+  drawSwatches(); setLive();
+}
+function initLook() {
+  load();
+  const row = $("themes");
+  THEMES.forEach((t) => row.appendChild(swatchCard(t.id, t.name)));
+  row.appendChild(swatchCard("custom", "Custom"));
+  row.appendChild(swatchCard("logo", "Match my logo"));
+  Object.entries(FONTS).forEach(([k, f]) => $("font").add(new Option(f.name, k)));
+  Object.entries(MOTIONS).forEach(([k, m]) => $("motion").add(new Option(m.name, k)));
+  Object.entries(TEXTURES).forEach(([k, n]) => $("texture").add(new Option(n, k)));
+  $("font").value = state.font; $("motion").value = state.motion; $("texture").value = state.texture;
+  ["bg", "ink", "accent"].forEach((k) => {
+    $(`c_${k}`).value = state.custom[k];
+    $(`c_${k}`).addEventListener("input", (e) => { state.custom[k] = e.target.value; customNote(); drawSwatches(); setLive(); save(); });
+  });
+  $("font").addEventListener("change", (e) => { state.font = e.target.value; drawSwatches(); setLive(); save(); });
+  $("motion").addEventListener("change", (e) => { state.motion = e.target.value; save(); });
+  $("texture").addEventListener("change", (e) => { state.texture = e.target.value; save(); });
+  $("copyLook").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(location.href); $("copyLook").textContent = "Link copied"; }
+    catch (e) { $("copyLook").textContent = "Copy the address bar instead"; }
+    setTimeout(() => { $("copyLook").textContent = "Copy a link to this look"; }, 2500);
+  });
+  pickTheme(state.theme);
 }
 
 // ---------------------------------------------------------------------------------------------------- wiring
@@ -206,8 +336,6 @@ function init() {
   $("music").value = state.bed;
   $("template").addEventListener("change", (e) => { state.template = e.target.value; state.values = {}; state.clips = {}; state.photos = []; $("photos").value = ""; renderFields(); restart(); });
   $("aspect").addEventListener("change", (e) => { state.aspect = e.target.value; restart(); });
-  $("bg").addEventListener("input", (e) => { state.bg = e.target.value; });
-  $("accent").addEventListener("input", (e) => { state.accent = e.target.value; });
   $("music").addEventListener("change", (e) => { state.bed = e.target.value; restart(); });
   $("endcard").addEventListener("change", (e) => { state.endcard = e.target.checked; state.clips = {}; markVoiceStale(); restart(); });
   $("captions").addEventListener("change", (e) => { state.captions = e.target.checked; });
@@ -215,7 +343,11 @@ function init() {
     const n = TEMPLATES[state.template].photos;
     state.photos = await Promise.all([...e.target.files].slice(0, n).map(readImage)); state.clips = {}; restart();
   });
-  $("logo").addEventListener("change", async (e) => { state.logo = e.target.files[0] ? await readImage(e.target.files[0]) : null; });
+  $("logo").addEventListener("change", async (e) => {
+    state.logo = e.target.files[0] ? await readImage(e.target.files[0]) : null;
+    readLogoColors();
+    if (state.wantLogoLook && state.logoLook) pickTheme("logo");
+  });
   $("voice").addEventListener("change", (e) => { state.voice = e.target.value; markVoiceStale(); });
   $("speed").addEventListener("input", (e) => { state.speed = Number(e.target.value); $("speedVal").textContent = `${state.speed.toFixed(2)}×`; markVoiceStale(); });
   document.querySelectorAll("input[name=voiceMode]").forEach((r) => r.addEventListener("change", () => {
@@ -239,6 +371,7 @@ function init() {
   $("ctaCheck").addEventListener("click", () => gtagEvent("vm_cta_click", { cta: "free_check" }));
   $("ctaFix").addEventListener("click", () => gtagEvent("vm_cta_click", { cta: "gmc_fix" }));
   renderFields();
+  initLook();
   restart();
   requestAnimationFrame(frame);
   gtagEvent("vm_open", { browser: browser() });
@@ -246,4 +379,5 @@ function init() {
     if (!s.ok) { $("unsupported").hidden = false; $("unsupported").textContent = `${s.why} Try Chrome or Edge on a computer or Android phone; you can still preview here.`; $("exportBtn").disabled = true; }
   });
 }
+window.__vmStill = (t) => { const tl = timeline(scenes()); drawFrame(ctx, tl, t < 0 ? totalDuration(tl) + t : t, opts()); return canvas.toDataURL("image/png"); }; // a test hook: t < 0 counts from the end
 init();

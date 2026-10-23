@@ -21,6 +21,20 @@ optional voice. No sign-up, no watermark, nothing uploaded. Your photos and your
 - **End card:** an optional "Made free at leymish.com" end card, on by default, which you can switch off. There's no
   watermark.
 
+## Looks
+- **10 themes** (`src/themes.js`): Midnight Neon, Sunset Pop, Ocean Calm, Forest Fresh, Luxe Gold, Candy, Clean Mono,
+  Earthy Clay, Retro 80s and Bold Brand. Each sets the background (solid, gradient, mesh glow or retro grid), colours,
+  highlight words, price-pill style and end-card style.
+- **Custom:** pick background, text and accent. **Match my logo:** the main colours are read from your logo in the
+  browser (k-means) and turned into a palette.
+- **Readable by design:** every theme, every custom palette and every logo palette is checked for WCAG AA contrast
+  (captions 4.5:1 or better) against every colour the text can sit on; `node test/themes.test.mjs` tests 10 presets,
+  500 random custom palettes and 200 random logos.
+- **Fonts:** 5 pairs (Inter, Poppins, Playfair Display, Bebas Neue and Space Grotesk headlines, Inter body), self-hosted
+  OFL files from Fontsource. Nothing is loaded from Google Fonts.
+- **Motion:** Snappy, Smooth or Bouncy. **Texture:** none, film grain or soft shapes.
+- The look is remembered on your device, and `?theme=…&font=…&motion=…` links share it.
+
 ## How it works
 - **Drawing:** a small Canvas 2D scene engine (`src/engine.js`) draws any moment of the video. The preview and the
   export use the same code.
@@ -37,7 +51,8 @@ optional voice. No sign-up, no watermark, nothing uploaded. Your photos and your
 ```
 npm install
 node build.mjs                 # bundles src/ into ../../site/tools/video-maker/ (or set VM_OUT)
-node test/e2e.mjs <page-url> <out-dir> [--voice] [--webgpu] [--cpu-only]
+node test/e2e.mjs <page-url> <out-dir> [--voice] [--webgpu] [--cpu-only] [--themes a,b,c]
+node test/themes.test.mjs      # contrast checks for every look
 ```
 
 ## Licence
@@ -51,5 +66,6 @@ Third-party parts:
 | kokoro-js, Kokoro-82M, transformers.js | Apache-2.0 |
 | Mediabunny | MPL-2.0 |
 | phonemizer | Apache-2.0, with eSpeak NG GPL-3 |
+| Inter, Poppins, Playfair Display, Bebas Neue, Space Grotesk (via Fontsource) | SIL Open Font License 1.1 |
 
 Made by [LeyMish Labs](https://www.leymish.com), South Australia.

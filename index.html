@@ -4,27 +4,50 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Free video maker: no sign-up, no watermark | LeyMish Labs</title>
-<meta name="description" content="Make a short video for your shop or business in your browser: motion graphics, captions, music and an optional voice. No sign-up, no watermark, nothing uploaded.">
+<meta name="description" content="Make a short video for your shop or business in your browser: 10 designed themes, motion graphics, captions, music and an optional voice. No sign-up, no watermark, nothing uploaded.">
 <meta name="robots" content="noindex">
 <link rel="canonical" href="{{SITE_URL}}/tools/video-maker/">
+<link rel="preload" href="./fonts/inter-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/style.css">
 <style>
+  .vmhero { position: relative; overflow: hidden; margin: 24px 0 28px; padding: 44px 36px 30px; border-radius: 28px; color: #f4f6ff;
+    background: radial-gradient(60% 80% at 85% 0%, rgba(0,229,255,.22), transparent 60%),
+                radial-gradient(50% 70% at 0% 100%, rgba(255,43,214,.20), transparent 60%), #0a0b14; }
+  .vmhero .eyebrow { color: #7cecff; }
+  .vmhero h1 { color: #fff; font-size: clamp(34px, 5vw, 58px); line-height: 1.02; letter-spacing: -.03em; margin: 10px 0 12px; max-width: 16ch; }
+  .vmhero h1 em { font-style: normal; background: linear-gradient(90deg, #7cecff, #ff7be2); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .vmhero .lede { color: #c9cde3; max-width: 56ch; margin: 0 0 22px; }
+  .vmhero .lede strong { color: #fff; }
+  .themes-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 0 10px; }
+  .themes-h b { font-size: 15px; letter-spacing: .02em; }
+  .themes-h button { background: none; border: 1px solid rgba(255,255,255,.25); color: #e6e9f7; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  #themes { display: flex; gap: 12px; overflow-x: auto; padding: 4px 2px 12px; scroll-snap-type: x proximity; scrollbar-width: thin; }
+  .swatch { flex: 0 0 auto; scroll-snap-align: start; display: grid; gap: 7px; padding: 6px; border-radius: 16px; border: 2px solid transparent;
+    background: rgba(255,255,255,.06); color: #e6e9f7; font: 600 13px/1.2 var(--sans); cursor: pointer; transition: transform .15s, border-color .15s; }
+  .swatch canvas { width: 108px; height: 138px; border-radius: 11px; display: block; }
+  .swatch:hover { transform: translateY(-2px); }
+  .swatch:focus-visible { outline: 3px solid #7cecff; outline-offset: 2px; }
+  .swatch[aria-pressed=true] { border-color: #7cecff; background: rgba(124,236,255,.12); }
   .vm { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 420px); gap: 28px; align-items: start; }
-  @media (max-width: 860px) { .vm { grid-template-columns: 1fr; } .vm .stage { order: -1; } }
+  @media (max-width: 860px) { .vm { grid-template-columns: 1fr; } .vm .stage { order: -1; } .vmhero { padding: 30px 18px 20px; border-radius: 20px; } }
   .vm form, .vm .panel { display: grid; gap: 12px; }
   .vm label { display: grid; gap: 5px; font-weight: 600; font-size: 15px; }
   .vm input[type=text], .vm select { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; }
   .vm .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
   .vm .row label { display: flex; gap: 6px; align-items: center; font-weight: 500; }
-  .vm fieldset { border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
-  .vm legend { font-weight: 700; padding: 0 6px; }
+  .vm .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 520px) { .vm .grid3 { grid-template-columns: 1fr; } }
+  .vm fieldset { border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: grid; gap: 12px; background: var(--surface); box-shadow: 0 1px 0 rgba(0,0,0,.03), 0 8px 24px -18px rgba(0,0,0,.25); }
+  .vm legend { font-weight: 800; padding: 0 6px; }
   .stage { position: sticky; top: 16px; display: grid; gap: 10px; }
-  #preview { width: 100%; max-width: 420px; aspect-ratio: 9 / 16; border-radius: 16px; background: #000; display: block; }
+  #preview { width: 100%; max-width: 420px; aspect-ratio: 9 / 16; border-radius: 18px; background: #000; display: block; box-shadow: 0 24px 60px -28px rgba(10,11,20,.55); }
   #preview.landscape { aspect-ratio: 16 / 9; max-width: 100%; }
   .small { font-size: 14px; color: var(--muted); }
   .note { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--surface); }
   #unsupported { border-color: #b42318; color: #b42318; }
   #resultVideo { width: 100%; max-width: 420px; border-radius: 14px; background: #000; }
+  #logoDots i { display: inline-block; width: 18px; height: 18px; border-radius: 50%; margin-right: 4px; vertical-align: middle; border: 1px solid var(--line); }
+  input[type=color] { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 2px; }
 </style>
 </head>
 <body>
@@ -33,33 +56,48 @@
     <a class="logo" href="/">leymish<span>/</span>labs</a>
     <nav>{{SITE_NAV}}</nav>
   </header>
-  <div class="hero">
+  <section class="vmhero" aria-labelledby="vmh">
     <div class="eyebrow">Free tool · no sign-up · no watermark</div>
-    <h1>Make a short video for your shop, free</h1>
-    <p class="lede">Motion graphics, captions, music and an optional voice, made in your browser. Your photos and your
-      video never leave your device.</p>
-  </div>
+    <h1 id="vmh">Make a shop video that looks <em>designed</em>, free</h1>
+    <p class="lede">Pick a look, type a few lines, add your photos. Motion graphics, captions, music and an optional voice,
+      made in your browser. <strong>Your photos and your video never leave your device.</strong></p>
+    <div class="themes-h"><b>Choose a look</b><button id="copyLook" type="button">Copy a link to this look</button></div>
+    <div id="themes" role="group" aria-label="Video themes"></div>
+  </section>
   <p id="unsupported" class="note" hidden></p>
   <div class="vm">
     <form id="form" onsubmit="return false">
-      <label>Template<select id="template"></select></label>
-      <p id="blurb" class="small"></p>
-      <div id="fields" class="panel"></div>
-      <div id="photosRow"><label>Photos<input id="photos" type="file" accept="image/*" multiple></label>
-        <p id="photoHint" class="small"></p></div>
+      <fieldset><legend>Words</legend>
+        <label>Template<select id="template"></select></label>
+        <p id="blurb" class="small"></p>
+        <div id="fields" class="panel"></div>
+        <div id="photosRow"><label>Photos<input id="photos" type="file" accept="image/*" multiple></label>
+          <p id="photoHint" class="small"></p></div>
+      </fieldset>
       <fieldset><legend>Look</legend>
-        <div class="row">
-          <label>Shape <select id="aspect"><option value="9x16">9:16 (Reels, Shorts, TikTok)</option><option value="16x9">16:9 (YouTube)</option></select></label>
+        <div id="customBox" class="panel" hidden>
+          <div class="grid3">
+            <label>Background <input id="c_bg" type="color"></label>
+            <label>Text <input id="c_ink" type="color"></label>
+            <label>Accent <input id="c_accent" type="color"></label>
+          </div>
+          <p id="customNote" class="small" aria-live="polite"></p>
+        </div>
+        <div class="grid3">
+          <label>Fonts <select id="font"><option id="fontDefault" value="">Theme's own</option></select></label>
+          <label>Motion <select id="motion"></select></label>
+          <label>Texture <select id="texture"><option id="textureDefault" value="">Theme's own</option></select></label>
         </div>
         <div class="row">
-          <label>Background <input id="bg" type="color" value="#16181d"></label>
-          <label>Accent <input id="accent" type="color" value="#4cc38a"></label>
-          <label>Logo <input id="logo" type="file" accept="image/*"></label>
+          <label>Shape <select id="aspect"><option value="9x16">9:16 (Reels, Shorts, TikTok)</option><option value="16x9">16:9 (YouTube)</option></select></label>
+          <label>Logo <input id="logo" type="file" accept="image/*"></label> <span id="logoDots" title="Colours found in your logo"></span>
         </div>
         <div class="row">
           <label><input id="captions" type="checkbox" checked> Captions</label>
           <label><input id="endcard" type="checkbox" checked> End card "Made free at leymish.com"</label>
         </div>
+        <p class="small">Every theme keeps captions readable: WCAG AA contrast, checked in code. Fonts are open-licence
+          (OFL) and load from this site.</p>
       </fieldset>
       <fieldset><legend>Sound</legend>
         <label>Music <select id="music"></select></label>
