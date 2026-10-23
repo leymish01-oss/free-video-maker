@@ -22,14 +22,13 @@ const FIELDS = {
 const browser = await chromium.launch({ channel: "msedge" });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 await page.goto(url, { waitUntil: "load" });
-await page.selectOption("#template", "offer");
+await page.evaluate(() => { const t = document.getElementById("template"); t.value = "offer"; t.dispatchEvent(new Event("change")); }); // P-065: steps hide controls
+await page.evaluate(() => window.__vmGo(2));
 for (const [id, v] of Object.entries(FIELDS)) await page.fill(`#fields input[data-id="${id}"]`, v);
-await page.selectOption("#music", "upbeat");
-await page.uncheck("#endcard"); // the reel's own last scene already says leymish.com
-await page.check("input[name=voiceMode][value=ai]");
-await page.selectOption("#voice", "af_heart");
-await page.click("#voiceBtn");
-await page.waitForFunction(() => /Voice done in/.test(document.getElementById("voiceStatus").textContent), null, { timeout: 900000 });
+await page.evaluate(() => { const m = document.getElementById("music"); m.value = "upbeat"; m.dispatchEvent(new Event("change")); });
+await page.evaluate(() => { const e = document.getElementById("endcard"); if (e.checked) e.click(); }); // the reel's own last scene already says leymish.com
+await page.evaluate(() => document.querySelector('[data-sound="ai"]').click());
+await page.evaluate(() => { const v = document.getElementById("voice"); v.value = "af_heart"; v.dispatchEvent(new Event("change")); });
 await page.evaluate(() => { window.__vmLast = null; document.getElementById("exportBtn").click(); });
 await page.waitForFunction(() => window.__vmLast, null, { timeout: 300000 });
 const last = await page.evaluate(() => window.__vmLast);

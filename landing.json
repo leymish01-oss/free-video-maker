@@ -1,0 +1,132 @@
+{
+  "pages": [
+    {
+      "slug": "black-friday",
+      "title": "Free Black Friday Video Maker, No Watermark | LeyMish Labs",
+      "description": "Make a Black Friday sale video free in your browser: your discount, code and deadline, captions and music. 9:16 or 16:9 MP4. No sign-up, no watermark.",
+      "h1": "Free Black Friday video maker for your sale",
+      "intro": "Type your discount, what it covers, your code and when the sale ends, add a photo, and export a Black Friday sale video as an MP4. It runs in your browser, with no sign-up and no watermark, and your photos are never uploaded. This page opens the Black Friday sale template with the free Midnight Neon theme.",
+      "preset": { "template": "blackfriday", "theme": "midnight-neon" },
+      "faq": [
+        [
+          "Is this Black Friday video maker really free?",
+          "Yes. Making and downloading the video is free: the Black Friday template, the 4 free themes (Midnight Neon, Sunset Pop, Clean Mono and Earthy Clay), your own colours, captions, music and the voice options. There's no sign-up and no watermark. The only paid part is optional Designer themes."
+        ],
+        [
+          "What goes into a Black Friday sale video?",
+          "The template has an opening line, the discount shown big, what it covers, an optional code, a countdown line such as \"Ends Monday at midnight\", a call to action and your web address or @handle. You can add one photo. Every line is yours to change."
+        ],
+        [
+          "Is there a festive theme for Black Friday?",
+          "Holiday Glow is one of the optional Designer themes. You can preview it free; unlocking it costs US$3, or US$5 for all 8 Designer themes, one-time. Midnight Neon, the free theme this page starts with, also suits a sale, and you can set your own colours for free."
+        ],
+        [
+          "Which sizes can I export?",
+          "9:16 for Reels, Shorts and TikTok, or 16:9 for YouTube. Both export as a 1080p MP4 at 30 frames per second."
+        ],
+        [
+          "Can I add a voice-over?",
+          "Yes, if you want one. You can add an AI-generated voice, which runs on your device and is labelled as AI, record your own voice while the preview plays, or use music only. The AI voice downloads about 90 MB the first time and takes about 15 seconds per line in Chrome."
+        ],
+        [
+          "Can I use it for Cyber Monday too?",
+          "The Black Friday template shows the words \"Black Friday\" in its opening scene. For a Cyber Monday post, use the Announcement / offer template, where you write the heading, the offer, two details and the deadline yourself."
+        ]
+      ]
+    },
+    {
+      "slug": "shopify-product-video",
+      "title": "Free Shopify Product Video Maker | LeyMish Labs",
+      "description": "Paste a Shopify product link and get a short product video with captions and music. Free MP4 in 9:16 or 16:9, no sign-up, no watermark.",
+      "h1": "Free Shopify product video maker",
+      "intro": "Paste the link to one of your Shopify product pages and the tool fills in the product name, price and photos for you. Check the words, pick a look and export an MP4 you can add to the product in Shopify. It runs in your browser, with no sign-up and no watermark.",
+      "preset": { "template": "promo", "theme": "sunset-pop" },
+      "faq": [
+        [
+          "How does the Shopify product video maker get my product details?",
+          "Paste a Shopify product page address into \"Start from your link\". The tool reads that page's public product details (name, price and photos) and fills the Product promo template. Then you add three benefits and a call to action. Use pages you own or have permission to use."
+        ],
+        [
+          "What if my store link doesn't fill anything?",
+          "Some sites block automatic visits, so the link can't always be read. If that happens, type the product name and price and add up to 3 photos from your device. Everything else works the same."
+        ],
+        [
+          "How do I add the video to my Shopify product?",
+          "In your Shopify admin, go to Products and click the product. In the Media section, click Upload new and choose the MP4, or drag the file in, then save. Shopify accepts MP4 files up to 1 GB and 10 minutes long. Your theme needs to support video for it to show on the product page."
+        ],
+        [
+          "Which size should I make for Shopify?",
+          "Both work as product media. Make 9:16 if you also want to post it on Reels, Shorts or TikTok, or 16:9 for a wide player and YouTube. Each export is a 1080p MP4."
+        ],
+        [
+          "How long does it take to make a product video?",
+          "In our test on a 4-core laptop, a 19-second 1080x1920 product video exported in about 20 to 25 seconds. Your device may be faster or slower. If you add the AI voice, allow about 15 seconds per line in Chrome."
+        ],
+        [
+          "Are my product photos uploaded anywhere?",
+          "No. Your photos, logo, recording and the finished video stay on your device. The page draws and encodes the video in your browser."
+        ]
+      ]
+    },
+    {
+      "slug": "woocommerce-product-video",
+      "title": "WooCommerce Product Video Maker, Free | LeyMish Labs",
+      "description": "Make a WooCommerce product video free: paste your product link, get an MP4 with captions and music, then add it to your product. No sign-up.",
+      "h1": "Make a WooCommerce product video for free",
+      "intro": "Paste the link to a WooCommerce product page and the tool fills in the product name, price and photos. Export a 9:16 or 16:9 MP4 in your browser, with no sign-up and no watermark. Below is how to add the video to your WooCommerce product.",
+      "preset": { "template": "promo", "theme": "clean-mono" },
+      "faq": [
+        [
+          "How do I make a WooCommerce product video from my product page?",
+          "Paste the product page address into \"Start from your link\". The tool reads the page's public product details (name, price and photos) and fills the Product promo template. Some sites block automatic visits; if yours does, type the details and add up to 3 photos yourself."
+        ],
+        [
+          "How do I add a video to a WooCommerce product?",
+          "WooCommerce's own product gallery is built for images, so a video added there won't play on the product page. The simplest way is the product description: click Add Media, upload the MP4 to your Media Library and insert it, and WordPress shows it with its built-in video player. If your site uses the block editor for products, use the Video block instead."
+        ],
+        [
+          "Can the video sit in the product gallery next to my photos?",
+          "Not with WooCommerce on its own. Product video gallery plugins add that, and some free versions only take YouTube links, so check whether a plugin plays your own MP4 file before you install it."
+        ],
+        [
+          "Is it really free, with no watermark?",
+          "Yes. Every template, the 4 free themes, your own colours, captions, music and the voice options are free, with no sign-up. There's no watermark, only an optional \"Made free at leymish.com\" end card you can switch off. Optional Designer themes are US$3 each, or US$5 for all 8, one-time."
+        ],
+        [
+          "How long does the export take?",
+          "In our test on a 4-core laptop, a 19-second 1080x1920 product video exported in about 20 to 25 seconds. It works best in Chrome or Edge on a computer or Android phone."
+        ]
+      ]
+    },
+    {
+      "slug": "christmas",
+      "title": "Christmas Product Video & Gift Guide Maker | LeyMish Labs",
+      "description": "Make a Christmas product video or holiday gift guide video free: three gifts, prices, photos and your last order date. MP4, no sign-up, no watermark.",
+      "h1": "Free Christmas product video and gift guide maker",
+      "intro": "Pick three gifts, add their prices and photos, and finish with your last order date for Christmas delivery. You get a short holiday gift guide video as an MP4, made in your browser with no sign-up and no watermark. This page opens the Christmas gift guide template with the free Earthy Clay theme.",
+      "preset": { "template": "giftguide", "theme": "earthy-clay" },
+      "faq": [
+        [
+          "What's in the holiday gift guide video template?",
+          "An opening line, three gifts each with a name, price and photo, a deadline or call to action such as your last order date for Christmas delivery, and your web address or @handle. You can change every line."
+        ],
+        [
+          "Is the Christmas product video maker free?",
+          "Yes. The gift guide template, the 4 free themes, your own colours, captions, music and the voice options are free, with no sign-up and no watermark. Optional Designer themes, including Holiday Glow, are US$3 each or US$5 for all 8, one-time. The money keeps the tool free."
+        ],
+        [
+          "Can I make a video for just one Christmas product?",
+          "Yes. Use the Product promo template for one product, its price, up to 3 photos and three reasons to buy. On Shopify and WooCommerce product pages, \"Start from your link\" can fill the name, price and photos for you; some sites block automatic visits."
+        ],
+        [
+          "Where can I post it?",
+          "Export 9:16 for Reels, Shorts and TikTok, or 16:9 for YouTube. Both are 1080p MP4 files you can also add to your product pages."
+        ],
+        [
+          "Are my gift photos uploaded?",
+          "No. Your photos, logo, recording and the finished video stay on your device. The page draws and encodes the video in your browser."
+        ]
+      ]
+    }
+  ]
+}

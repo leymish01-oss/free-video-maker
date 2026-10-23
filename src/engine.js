@@ -371,6 +371,29 @@ export function drawFrame(ctx, tl, t, opts) {
     ctx.drawImage(assets.logo, H > W ? W * 0.08 : W * 0.07, H > W ? H * 0.06 : H * 0.05, Math.min(lw, W * 0.4), lh);
   }
   if (opts.captions !== false && s.line && s.type !== "endcard") caption(ctx, s.line, W, H, lt, s.dur, theme, H > W);
+  if (opts.stamp) stamp(ctx, W, H);
+}
+
+/** A preview made with a locked Designer theme: diagonal "PREVIEW · leymish.com" lines and a corner badge, burned in. */
+function stamp(ctx, W, H) {
+  ctx.save();
+  const fs = Math.round(Math.min(W, H) * 0.075);
+  ctx.font = bf(fs, 800); ctx.textBaseline = "middle"; ctx.textAlign = "center";
+  ctx.translate(W / 2, H / 2); ctx.rotate(-Math.PI / 7);
+  const text = "PREVIEW · leymish.com", step = fs * 3.2, span = Math.hypot(W, H);
+  ctx.lineWidth = Math.max(2, fs * 0.07); ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.fillStyle = "rgba(255,255,255,0.34)";
+  for (let y = -span / 2; y <= span / 2; y += step) {
+    for (const x of [-span / 3, span / 3]) { ctx.strokeText(text, x + (y / step % 2) * fs * 2, y); ctx.fillText(text, x + (y / step % 2) * fs * 2, y); }
+  }
+  ctx.restore();
+  ctx.save(); // the corner badge
+  const bfs = Math.round(Math.min(W, H) * 0.032), pad = bfs * 0.6;
+  ctx.font = bf(bfs, 800);
+  const label = "PREVIEW", w = ctx.measureText(label).width + pad * 2, h = bfs * 1.8;
+  const x = W - w - W * 0.04, y = H * 0.03;
+  ctx.fillStyle = "rgba(255,122,46,0.92)"; roundRect(ctx, x, y, w, h, h / 2); ctx.fill();
+  ctx.fillStyle = "#0b1f3f"; ctx.textBaseline = "middle"; ctx.fillText(label, x + pad, y + h / 2 + 1);
+  ctx.restore();
 }
 
 /** A one-second swatch loop for the theme picker: a word, a highlight and a pill, drawn small. */

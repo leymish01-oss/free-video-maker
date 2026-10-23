@@ -27,7 +27,7 @@ await page.goto(url + (process.argv.includes("--webgpu") ? "?webgpu" : ""), { wa
 
 async function exportNow(name) {
   await page.evaluate(() => { window.__vmLast = null; document.getElementById("exportBtn").click(); });
-  await page.waitForFunction(() => window.__vmLast, null, { timeout: 300000 });
+  await page.waitForFunction(() => window.__vmLast, null, { timeout: 900000 }); // with an AI voice, the first download is inside
   const last = await page.evaluate(() => window.__vmLast);
   if (last.error) throw new Error(`${name}: ${last.error}`);
   const b64 = await page.evaluate(async () => {
@@ -42,7 +42,7 @@ async function exportNow(name) {
 
 const results = {};
 const themes = (process.argv.includes("--themes") ? process.argv[process.argv.indexOf("--themes") + 1] : "sunset-pop,clean-mono,midnight-neon").split(",");
-const look = (i) => page.click(`.swatch[data-theme="${themes[i % themes.length]}"]`);
+const look = (i) => page.evaluate((id) => document.querySelector(`.swatch[data-theme="${id}"]`).click(), themes[i % themes.length]); // P-065: in a hidden step
 // 1. Product promo with photos and music, no voice
 const pics = ["product-1.jpg", "product-2.jpg", "product-3.jpg"].map((f) => join(here, "fixtures", f));
 await page.setInputFiles("#photos", pics);
@@ -50,19 +50,17 @@ await look(0);
 await page.waitForTimeout(500);
 results.promo_music = await exportNow("promo-9x16-music");
 // 2. The same in 16:9
-await page.selectOption("#aspect", "16x9");
+await page.evaluate(() => document.querySelector('[data-aspect="16x9"]').click());
 await look(1);
 await page.waitForTimeout(300);
 results.promo_16x9 = await exportNow("promo-16x9-music");
-await page.selectOption("#aspect", "9x16");
+await page.evaluate(() => document.querySelector('[data-aspect="9x16"]').click());
 if (voice) { // 3. AI voice (downloads the model the first time) then export
   await look(2);
-  await page.check("input[name=voiceMode][value=ai]");
+  await page.evaluate(() => document.querySelector('[data-sound="ai"]').click()); // the voice is made inside Make my video (P-065)
   const t0 = Date.now();
-  await page.click("#voiceBtn");
-  await page.waitForFunction(() => /Voice done in/.test(document.getElementById("voiceStatus").textContent), null, { timeout: 900000 });
-  results.voice = { status: await page.textContent("#voiceStatus"), ms_total_incl_download: Date.now() - t0 };
-  results.promo_voice = await exportNow("promo-9x16-voice");
+  results.promo_voice = await exportNow("promo-9x16-voice"); // voice (incl. the first download) + frames + encode
+  results.voice = { ms_total_incl_download_and_export: Date.now() - t0 };
 }
 results.console_errors = log.filter((e) => !/403|ERR_|favicon/.test(e)).slice(0, 5);
 results.gpu = await page.evaluate(() => !!navigator.gpu);

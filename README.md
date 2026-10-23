@@ -33,7 +33,7 @@ optional voice. No sign-up, no watermark, nothing uploaded. Your photos and your
   (captions 4.5:1 or better) against every colour the text can sit on; `node test/themes.test.mjs` tests the presets,
   500 random custom palettes and 200 random logos.
 - **Designer themes are a separate paid content pack.** On leymish.com the page also offers 8 extra themes and Match
-  my logo (US$2 each, or US$5 for all). Their designs are not part of this program or this repository and are not
+  my logo (US$3 each, or US$5 for all). Their designs are not part of this program or this repository and are not
   covered by its GPL licence; `src/premium.js` only loads them from the site's server and asks it whether an export may
   use one. Without that server, the tool runs with its free themes and every feature, and Match my logo is free too.
 - **Fonts:** 5 pairs (Inter, Poppins, Playfair Display, Bebas Neue and Space Grotesk headlines, Inter body), self-hosted
@@ -59,7 +59,7 @@ npm install
 node build.mjs                 # bundles src/ into ../../site/tools/video-maker/ (or set VM_OUT)
 node test/e2e.mjs <page-url> <out-dir> [--voice] [--webgpu] [--cpu-only] [--themes a,b,c]
 node test/themes.test.mjs      # contrast checks for every look
-node test/paywall.mjs <page-url>   # the Designer-themes gate, with the server mocked
+node test/flow.mjs <page-url> [shots-dir]   # the 5-step flow end to end, server mocked
 ```
 
 ## Licence
