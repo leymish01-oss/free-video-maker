@@ -31,7 +31,14 @@ function runs(text) {
 /** Word-wrap accent runs into lines that fit maxWidth; returns [[{word, accent}]] */
 function wrap(ctx, text, maxWidth) {
   const words = [];
-  runs(text).forEach((r) => r.text.split(/\s+/).filter(Boolean).forEach((w) => words.push({ w, accent: r.accent })));
+  runs(text).forEach((r) => r.text.split(/(\s+)/).forEach((w, i, all) => {
+    if (!w || /^\s+$/.test(w)) return;
+    // punctuation right after an *accent* run ("*free*,") belongs to the previous word: no space before it
+    const glued = i === 0 && words.length && !/^\s/.test(r.text) && /^[,.;:!?)'’]/.test(w);
+    if (glued) words[words.length - 1].tail = (words[words.length - 1].tail || "") + w;
+    else words.push({ w, accent: r.accent });
+  }));
+  words.forEach((wd) => { if (wd.tail) { wd.w += wd.tail; delete wd.tail; } });
   const lines = [[]];
   let width = 0;
   const space = ctx.measureText(" ").width;
