@@ -35,6 +35,11 @@ const fake = (id, name, bg) => ({ id, name, font: "inter", texture: "none", bg: 
   ink: "#ffffff", muted: "#dddddd", accent: "#ffcc00", highlight: "#ffcc00", onAccent: "#000000",
   caption: { bg: "rgba(0,0,0,0.85)", ink: "#ffffff" }, pill: "solid", endcard: "center", radius: 10 });
 const THEMES = [fake("test-a", "Test A", "#202040"), fake("test-b", "Test B", "#402020")];
+// A stand-in Motion Pack for test-a (the real packs are leymish.com's own code and never part of this repo): it only
+// proves the page loads a pack from the server, passes it to the engine and shows its card preview.
+const STAND_IN_PACK = `export const PACKS = { "test-a": { name: "Test A", effects: ["one", "two", "three", "four", "five", "six"],
+  word(ctx, i) { ctx.globalAlpha = i.alpha; ctx.fillStyle = "#ff00ff"; ctx.fillText(i.text, i.x, i.y); },
+  swatch(ctx, t) { ctx.fillStyle = "#ff00ff"; ctx.fillRect(0, 0, 360 * (t % 1), 24); } } };`;
 const tokenFor = (ids) => Buffer.from(JSON.stringify({ ids })).toString("base64url") + ".sig";
 const PHOTO = readFileSync(join(here, "fixtures", "product-1.jpg"));
 const STRIPE = "https://pay.example.test/";
@@ -59,6 +64,7 @@ async function context(viewport, { pack = !LIVE } = {}) {
     if (!pack && LIVE) return route.continue();
     if (u.pathname.endsWith("/config")) return j({ enabled: true, prices: { single: 3, pack: 5, currency: "USD" }, links: { "test-a": STRIPE + "a", "test-b": STRIPE + "b", pack: STRIPE + "pack" }, themes: THEMES.map(({ id, name }) => ({ id, name })) });
     if (u.pathname.endsWith("/themes")) return j({ themes: THEMES });
+    if (u.pathname.endsWith("/packs.js")) return route.fulfill({ status: 200, contentType: "text/javascript", headers: { "Access-Control-Allow-Origin": "*" }, body: STAND_IN_PACK });
     if (u.pathname.endsWith("/verify")) {
       let ids = []; try { ids = JSON.parse(Buffer.from(body.token.split(".")[0], "base64url")).ids; } catch (e) { /* bad token */ }
       return j({ ok: body.token.endsWith(".sig") && ids.includes(body.theme) });
@@ -97,6 +103,53 @@ async function grab(page, links, extra) {
 }
 const timings = {};
 
+// P-067: what Mick found by hand. Highlights without asterisks, photo thumbnails (remove, reorder, add your own), the logo.
+async function humanFixes(page, tag) {
+  const hook = await field(page, "hook");
+  check(hook.length > 0 && !hook.includes("*"), `${tag}: the hook box shows no asterisks ("${hook}")`);
+  const chips = () => page.$$eval(".hlrow .chip", (c) => c.map((x) => x.textContent.replace("✕", "").trim()));
+  const before = await chips();
+  check(before.length >= 1 && await page.isVisible(".hlrow .hlbtn"), `${tag}: highlighted words shown as chips with a ★ button (${before.join(", ")})`);
+  await page.fill('#fields input[data-id="hook"]', "Meet the shoe you will love");
+  await page.evaluate(() => { const i = document.querySelector('#fields input[data-id="hook"]'); i.focus(); i.setSelectionRange(9, 13); });
+  await page.click(".hlrow .hlbtn");
+  const after = await chips();
+  check(after.includes("★ shoe") && (await field(page, "hook")) === "Meet the shoe you will love", `${tag}: select a word + ★ highlights it, the box still shows no asterisks`);
+  const still = await page.evaluate(() => window.__vmStill(1.5));
+  check(still.length > 1000, `${tag}: the preview draws with the highlight`);
+  await page.click(".hlrow .chip button");
+  check((await chips()).length === 0, `${tag}: ✕ on a chip removes the highlight`);
+  // photos: two from the link, then one of ours, then remove and reorder
+  const thumbs = () => page.$$eval("#photoStrip .thumb", (t) => t.map((x) => x.getAttribute("aria-label")));
+  let t = await thumbs();
+  check(t.length === 2 && t.every((x) => /from your link/.test(x)) && await page.isVisible("#addPhotos"), `${tag}: 2 photo thumbnails from the link, "+ Add your own" shown`);
+  check(/2 from your link/.test(await page.textContent("#photoHint")), `${tag}: the photo text says where they came from ("${(await page.textContent("#photoHint")).trim()}")`);
+  await page.setInputFiles("#photos", join(here, "fixtures", "product-2.jpg"));
+  await page.waitForFunction(() => document.querySelectorAll("#photoStrip .thumb").length === 3);
+  t = await thumbs();
+  check(/yours/.test(t[2]) && await page.isHidden("#addPhotos"), `${tag}: "+ Add your own" adds a 3rd photo, then hides at the limit`);
+  await page.focus("#photoStrip .thumb:nth-child(3)"); await page.keyboard.press("ArrowLeft");
+  t = await thumbs();
+  check(/yours/.test(t[1]), `${tag}: arrow keys move a photo (yours is now 2nd)`);
+  const box = async (n) => (await page.$(`#photoStrip .thumb:nth-child(${n})`)).boundingBox();
+  const [b2, b1] = [await box(2), await box(1)];
+  await page.mouse.move(b2.x + b2.width / 2, b2.y + b2.height / 2); await page.mouse.down();
+  await page.mouse.move(b1.x + b1.width / 2, b1.y + b1.height / 2, { steps: 6 }); await page.mouse.up();
+  t = await thumbs();
+  check(/yours/.test(t[0]), `${tag}: dragging moves a photo (yours is now 1st)`);
+  await page.click("#photoStrip .thumb:nth-child(1) .x");
+  t = await thumbs();
+  check(t.length === 2 && t.every((x) => /from your link/.test(x)) && await page.isVisible("#addPhotos"), `${tag}: ✕ removes a photo and "+ Add your own" comes back`);
+  // the logo: thumbnail, ✕, and "Use my own"
+  check(await page.isHidden("#logoThumb") && /Use my own logo/.test(await page.textContent("#logoPick")), `${tag}: no logo found → "Use my own logo"`);
+  await page.setInputFiles("#logo", join(here, "fixtures", "product-3.jpg"));
+  await page.waitForSelector("#logoThumb", { state: "visible" });
+  check(/instead/.test(await page.textContent("#logoPick")), `${tag}: own logo shown as a thumbnail`);
+  await page.click("#logoRemove");
+  check(await page.isHidden("#logoThumb"), `${tag}: ✕ removes the logo`);
+  await shot(page, `${tag}-3b-words-fixes`);
+}
+
 // ---------------------------------------------------------------------------------------- every type, both widths
 for (const [vw, vh, tag] of [[1366, 1000, "desktop"], [390, 844, "mobile"]]) {
   const ctx = await context({ width: vw, height: vh });
@@ -126,6 +179,7 @@ for (const [vw, vh, tag] of [[1366, 1000, "desktop"], [390, 844, "mobile"]]) {
       check(r.ok, `${tag}/${type}: details read (${r.ok ? `${r.read || 1} link(s), ${r.photos} photo(s), ${r.secs} s` : r.error})`);
       check(await page.isVisible('.step[data-step="3"]'), `${tag}/${type}: moved on to Words`);
       if (type === "promo") check((await field(page, "name")).includes("Tree Runner") && /\$/.test(await field(page, "price")), `${tag}/promo: name and price from the page`);
+      if (type === "promo") await humanFixes(page, tag);
       if (type === "blackfriday") check((await field(page, "pct")) === "30% off" && /BF30/.test(await field(page, "code")) && /30% off/.test(await field(page, "hook")), `${tag}/blackfriday: discount, code and hook filled`);
       if (type === "giftguide") check((await field(page, "g1")).includes("Tree Runner") && (await field(page, "g2")).includes("Peptide") && (await field(page, "g3")).length > 0, `${tag}/giftguide: three gifts filled`);
       if (type === "offer") check((await field(page, "what")).length > 5 && /LeyMish/i.test(await field(page, "hook")), `${tag}/offer: description and hook from the website`);
@@ -140,6 +194,8 @@ for (const [vw, vh, tag] of [[1366, 1000, "desktop"], [390, 844, "mobile"]]) {
       check((await field(page, "hook")).length > 0, `${tag}/promo: hook still filled`);
     }
     await page.click('.step[data-step="3"] [data-nav="next"]'); await shot(page, `${tag}-4-look-${type}`);
+    const sw = await page.evaluate(() => [document.documentElement.scrollWidth, innerWidth, !document.getElementById("compareBox").hidden]);
+    check(sw[0] <= sw[1], `${tag}/${type}: no sideways scroll on Look (${sw[0]} px wide in ${sw[1]}, clip ${sw[2] ? "shown" : "hidden"})`);
     await page.click('.step[data-step="4"] [data-nav="next"]'); await shot(page, `${tag}-5-sound-${type}`);
     await page.click('.step[data-step="5"] [data-nav="next"]'); await shot(page, `${tag}-6-make-${type}`);
     const t0 = Date.now();
@@ -186,7 +242,17 @@ if (!ONLY.length) {
     check(!last.error && last.voice === "ai" && lv.rms > 0.01, `AI voice: the MP4 has a voice track with no music (rms ${lv.rms.toFixed(3)}, ${lv.seconds.toFixed(1)} s)`);
     await page.evaluate(() => window.__vmGo(5)); await page.click('[data-sound="none"]'); await page.selectOption("#music", "bright");
   }
-  await page.evaluate(() => window.__vmGo(4)); await page.click('.swatch[data-theme="test-a"]'); await page.evaluate(() => window.__vmGo(6));
+  await page.evaluate(() => window.__vmGo(4));
+  const badge = (id) => page.textContent(`.swatch[data-theme="${id}"] .badge`);
+  check(/Basic motion · FREE/.test(await badge("midnight-neon")) && /✨ Motion Pack · \$3/.test(await badge("test-a")), `Look: badges "Basic motion · FREE" and "✨ Motion Pack · $3" ("${(await badge("test-a")).trim()}")`);
+  check(await page.isVisible("#compareBox"), "Look: the Free vs Motion Pack clip is shown at the top");
+  await page.click('.swatch[data-theme="test-a"]');
+  const plainStill = await page.evaluate(() => window.__vmStill(1.2, { pack: null }));
+  check((await page.evaluate(() => window.__vmStill(1.2))) !== plainStill, "Look: the server's Motion Pack changes the frame (stand-in pack)");
+  const sw = () => page.$eval('.swatch[data-theme="test-a"] canvas', (c) => c.toDataURL());
+  const s1 = await sw(); await page.waitForTimeout(400);
+  check(s1 !== await sw(), "Look: the chosen Motion Pack card plays its loop");
+  await page.evaluate(() => window.__vmGo(6));
   let last = await make(page, 300000);
   check(last.stamped === true && await page.isVisible("#proBox") && await page.isHidden("#freeActions") && (await visibleScreens(page)) === 1, "Designer theme: one stamped preview, no download, the US$3 offer");
   await shot(page, "desktop-8-pro-preview");

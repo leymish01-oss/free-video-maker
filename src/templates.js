@@ -86,7 +86,7 @@ export const TEMPLATES = {
       { type: "hook", kicker: "Black Friday", headline: f.hook, line: plain(f.hook), dur: 2.2 },
       { type: "title", kicker: plain(f.what), headline: `*${plain(f.pct)}*`, size: 2.1, line: `${plain(f.pct)}. ${plain(f.what)}.`,
         say: `${spokenPercent(f.pct)}. ${plain(f.what)}.`, dur: 3 },
-      ...(f._photos ? [{ type: "photo", headline: `*${plain(f.pct)}*`, photo: 0, line: "", dur: 2.2 }] : []),
+      ...(f._photos ? [{ type: "photo", headline: `*${plain(f.pct)}*`, photo: 0, line: "", dur: 2.4, ...wasNow(f._price, f.pct) }] : []),
       ...(plain(f.code) ? [{ type: "title", kicker: "How", headline: f.code, line: plain(f.code) + ".", dur: 2.8 }] : []),
       { type: "title", kicker: "Hurry", headline: `*${plain(f.until)}*`, size: 1.15, line: plain(f.until) + ".", dur: 2.6 },
       { type: "cta", headline: `*${f.cta}*`, button: f.url, line: `${plain(f.cta)} at ${plain(f.url)}.`,
@@ -135,6 +135,16 @@ export function spokenUrl(u) {
   const s = plain(u).replace(/^https?:\/\//, "").replace(/\/$/, "");
   if (s.startsWith("@")) return "at " + s.slice(1);
   return s.replace(/\./g, " dot ");
+}
+
+/** "Was $38, now $26.60": only when the user's own price and discount are both real numbers; otherwise nothing. */
+export function wasNow(price, pct) {
+  const m = String(price || "").trim().match(/^(\D{0,4}?)\s*(\d+(?:[.,]\d{1,2})?)(\s*\D{0,4})$/), d = String(pct || "").match(/(\d{1,2})\s*%/);
+  if (!m || !d) return {};
+  const n = parseFloat(m[2].replace(",", ".")), off = Number(d[1]);
+  if (!(n > 0) || !(off > 0 && off < 100)) return {};
+  const now = n * (1 - off / 100), dec = /[.,]\d/.test(m[2]) || now % 1 ? 2 : 0;
+  return { was: String(price).trim(), price: `${m[1]}${now.toFixed(dec)}${m[3]}` };
 }
 
 /** Scenes for a template and form values; the end card is appended when wanted. A field missing from `values` uses

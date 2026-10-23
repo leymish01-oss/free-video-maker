@@ -7,7 +7,7 @@ import { THEMES, THEME_IDS, DEFAULT_THEME, FONTS, MOTIONS, TEXTURES, FONT_FILES,
 import { TEMPLATES, buildScenes } from "./templates.js";
 import { BEDS, renderBed } from "./music.js";
 import { exportMp4, mixAudio, support } from "./export.js";
-import { apiBase, loadPack, canExport, redeem, restore, saveToken, claimedIds } from "./premium.js";
+import { apiBase, loadPack, loadMotion, canExport, redeem, restore, saveToken, claimedIds } from "./premium.js";
 import { readPage, proxied, dataFrom, clip } from "./fromurl.js";
 
 const VOICES = [
@@ -85,7 +85,9 @@ function writeHooks() {
 /** The values a template's scenes are built from: the user's or the link's words, never the example text. */
 function values(tpl = state.template) {
   if (!hasData()) return {}; // nothing yet: the template's example, labelled "Example" on screen
-  return Object.fromEntries(TEMPLATES[tpl].fields.map((f) => [f.id, val(MAP[tpl][f.id])]));
+  const v = Object.fromEntries(TEMPLATES[tpl].fields.map((f) => [f.id, val(MAP[tpl][f.id])]));
+  if (tpl === "blackfriday" && val("price")) v._price = val("price"); // the product's real price, for "was → now"
+  return v;
 }
 
 // ------------------------------------------------------------------------------------------------------- the steps
@@ -95,6 +97,7 @@ function go(n) {
   if (n === 2 && linkSkipped()) n = state.step > 2 ? 1 : 3; // a tip needs no link
   state.step = n;
   document.querySelector(".studio").dataset.step = n;
+  if (n === 4) playCompare();
   document.querySelectorAll(".step").forEach((s) => { s.hidden = Number(s.dataset.step) !== n; });
   document.querySelectorAll(".stepper button").forEach((b) => {
     const k = Number(b.dataset.go);
@@ -115,7 +118,7 @@ function summary() {
   const th = theme();
   const sound = { none: `${BEDS[state.bed].name} music`, ai: `AI voice (${VOICES.find((v) => v.id === state.voice).name}) + ${BEDS[state.bed].name.toLowerCase()}`,
     record: `your own voice + ${BEDS[state.bed].name.toLowerCase()}` }[state.voiceMode];
-  $("summary").textContent = `${TYPE_NAME[state.template]} · ${th.name || "Custom"}${isLocked(state.theme) ? " (Designer theme: the preview is stamped until you unlock it)" : ""} · ${state.aspect.replace("x", ":")} · ${sound}. About ${estimate()} s to make.`;
+  $("summary").textContent = `${TYPE_NAME[state.template]} · ${th.name || "Custom"}${isLocked(state.theme) ? " (Motion Pack: the preview is stamped until you unlock it)" : ""} · ${state.aspect.replace("x", ":")} · ${sound}. About ${estimate()} s to make.`;
 }
 
 // ------------------------------------------------------------------------------------------------------- 1. type
@@ -139,7 +142,7 @@ function drawTypeCards() {
     const c = b.querySelector("canvas"), x = c.getContext("2d"), k = c.width / 1080;
     const tl = timeline(buildScenes(b.dataset.type, {}, { endcard: false }));
     x.setTransform(k, 0, 0, k, 0, 0);
-    drawFrame(x, tl, 1.0, { width: 1080, height: 1920, ...look(), assets: { photos: [], logo: null }, captions: false });
+    drawFrame(x, tl, 1.0, { width: 1080, height: 1920, ...look(), assets: { photos: [], logo: null }, captions: false, pack: packFor(state.theme) });
     x.setTransform(1, 0, 0, 1, 0, 0);
   });
 }
@@ -212,7 +215,7 @@ async function grab() {
         $("fromUrlStatus").textContent = `Found "${page.title || page.siteName || "your page"}"${page.price ? `, price ${page.price}` : ""}. Loading photos…`;
         state.photos = (await Promise.all((page.images || []).slice(0, Math.max(want, 1)).map((u) => proxied(API, u)))).filter(Boolean).slice(0, Math.max(want, 1));
       }
-      if (page.logo && !state.logo) { const logo = await proxied(API, page.logo); if (logo) { state.logo = logo; readLogoColors(); } }
+      if (page.logo && !state.logo) { const logo = await proxied(API, page.logo); if (logo) { logo.vmFrom = "link"; state.logo = logo; readLogoColors(); } }
       state.fromUrl = { kind: page.kind, host: d.url };
       ok++;
     } catch (e) {
@@ -221,6 +224,7 @@ async function grab() {
     }
   }
   if (gift) state.photos = state.photos.filter(Boolean);
+  state.photos.forEach((img) => { if (!img.vmFrom) img.vmFrom = "link"; });
   $("fromUrlBtn").disabled = false;
   if (!ok) {
     $("fromUrlStatus").textContent = "Use pages you own or have permission to use.";
@@ -249,22 +253,141 @@ function renderFields() {
     lab.textContent = f.label;
     const inp = document.createElement("input");
     inp.type = "text"; inp.maxLength = 90; inp.dataset.id = f.id; inp.dataset.key = key;
-    inp.value = val(key);
-    inp.placeholder = `e.g. ${String(f.value).replace(/\*/g, "")}`;
+    const marked = String(f.value).includes("*"); // a line with highlighted words: shown without the asterisks
+    inp.value = marked ? plain(val(key)) : val(key);
+    inp.placeholder = `e.g. ${plain(f.value)}`;
     inp.addEventListener("input", () => {
-      state.user[key] = inp.value;
+      state.user[key] = marked ? withMarks(inp.value, marksOf(val(key))) : inp.value;
       if (/^(name|price|discount|gift\.0\.name)$/.test(key)) writeHooks(); // the auto hook follows the product name
-      refreshHookField(); restart();
+      refreshHookField(); if (marked) drawMarks(inp); restart();
     });
     lab.appendChild(inp);
     $("fields").appendChild(lab);
+    if (marked) { const row = document.createElement("div"); row.className = "hlrow"; inp.hl = row; $("fields").appendChild(row); drawMarks(inp); }
   });
   $("photosRow").hidden = !t.photos;
-  $("photoHint").textContent = t.photos ? `Up to ${t.photos} photo${t.photos > 1 ? "s" : ""}, picked from your device (never uploaded).${state.photos.length ? ` ${state.photos.length} added.` : ""}` : "";
+  renderPhotos(); renderLogo();
+}
+
+// Highlighted words: the video shows them in the accent colour. The text box never shows the *asterisks*; the words
+// appear as chips under it instead, with a ★ button to highlight the selected word (or the word at the cursor).
+const plain = (s) => String(s || "").replace(/\*/g, "");
+const marksOf = (s) => [...String(s || "").matchAll(/\*([^*]+)\*/g)].map((m) => m[1].trim()).filter(Boolean);
+function withMarks(text, words) { // *…* round the first unmarked appearance of each word still in the text
+  let out = String(text);
+  for (const w of [...new Set(words)]) {
+    let i = out.indexOf(w);
+    while (i >= 0 && (out[i - 1] === "*" || out[i + w.length] === "*")) i = out.indexOf(w, i + 1);
+    if (i >= 0) out = `${out.slice(0, i)}*${w}*${out.slice(i + w.length)}`;
+  }
+  return out;
+}
+function drawMarks(inp) {
+  const row = inp.hl, key = inp.dataset.key;
+  if (!row) return;
+  row.innerHTML = "";
+  const star = document.createElement("button");
+  star.type = "button"; star.className = "hlbtn"; star.textContent = "★ Highlight";
+  star.setAttribute("aria-label", "Highlight the selected word");
+  star.addEventListener("pointerdown", (e) => e.preventDefault()); // keep the text box's selection
+  star.addEventListener("click", () => markSelection(inp));
+  row.appendChild(star);
+  const words = marksOf(val(key));
+  if (!words.length) row.appendChild(Object.assign(document.createElement("span"), { className: "small", textContent: "Highlight a word: select it and tap ★" }));
+  words.forEach((w) => {
+    const chip = Object.assign(document.createElement("span"), { className: "chip", textContent: `★ ${w}` });
+    const x = Object.assign(document.createElement("button"), { type: "button", textContent: "✕" });
+    x.setAttribute("aria-label", `Stop highlighting "${w}"`);
+    x.addEventListener("click", () => { state.user[key] = withMarks(plain(val(key)), words.filter((v) => v !== w)); drawMarks(inp); restart(); });
+    chip.appendChild(x); row.appendChild(chip);
+  });
+}
+function markSelection(inp) {
+  const v = inp.value;
+  let a = inp.selectionStart ?? v.length, b = inp.selectionEnd ?? v.length;
+  if (a === b) { while (a > 0 && /\S/.test(v[a - 1])) a--; while (b < v.length && /\S/.test(v[b])) b++; } // the word at the cursor
+  const w = v.slice(a, b).trim().replace(/^[^\p{L}\p{N}$£€%]+|[^\p{L}\p{N}%]+$/gu, "");
+  if (!w) { inp.focus(); return; }
+  state.user[inp.dataset.key] = withMarks(v, [...marksOf(val(inp.dataset.key)), w]);
+  drawMarks(inp); restart();
+}
+
+// Photos: thumbnails in the order the video uses them. ✕ removes one, drag (or arrow keys) reorders, "+ Add your own"
+// adds from this device until the type's limit.
+function drawInto(c, img, contain = false) {
+  const x = c.getContext("2d"), s = (contain ? Math.min : Math.max)(c.width / img.width, c.height / img.height);
+  x.clearRect(0, 0, c.width, c.height);
+  if (contain) { x.fillStyle = "#ffffff"; x.fillRect(0, 0, c.width, c.height); }
+  x.drawImage(img, (c.width - img.width * s) / 2, (c.height - img.height * s) / 2, img.width * s, img.height * s);
+}
+function renderPhotos() {
+  const n = TEMPLATES[state.template].photos || 0, ul = $("photoStrip"), all = state.photos.length;
+  ul.innerHTML = "";
+  state.photos.forEach((img, i) => {
+    const li = document.createElement("li");
+    li.className = "thumb"; li.tabIndex = 0; li.dataset.i = i;
+    if (i >= n) li.style.opacity = ".45";
+    li.setAttribute("aria-label", `Photo ${i + 1} of ${all}${img.vmFrom === "link" ? ", from your link" : ", yours"}${i >= n ? ", not used by this video type" : ""}. Arrow keys move it.`);
+    const c = document.createElement("canvas"); c.width = c.height = 168; c.setAttribute("aria-hidden", "true"); drawInto(c, img);
+    const num = Object.assign(document.createElement("span"), { className: "n", textContent: String(i + 1) });
+    const x = Object.assign(document.createElement("button"), { type: "button", className: "x", textContent: "✕" });
+    x.setAttribute("aria-label", `Remove photo ${i + 1}`);
+    x.addEventListener("click", () => { state.photos.splice(i, 1); renderPhotos(); restart(); });
+    li.append(c, num, x);
+    li.addEventListener("keydown", (e) => {
+      const to = e.key === "ArrowLeft" ? i - 1 : e.key === "ArrowRight" ? i + 1 : -1;
+      if (to < 0 || to >= all) return;
+      e.preventDefault(); movePhoto(i, to); renderPhotos(); restart();
+      ul.children[to].focus();
+    });
+    li.addEventListener("pointerdown", startDrag);
+    ul.appendChild(li);
+  });
+  const fromLink = state.photos.filter((p) => p.vmFrom === "link").length;
+  $("photoCount").textContent = n ? `(${Math.min(all, n)} of ${n})` : "";
+  $("addPhotos").hidden = all >= n;
+  $("photoHint").textContent = !all
+    ? `Add up to ${n} photo${n > 1 ? "s" : ""} from this device. They stay on your device; nothing is uploaded.`
+    : `${fromLink ? `${fromLink} from your link` : ""}${fromLink && all > fromLink ? ", " : ""}${all > fromLink ? `${all - fromLink} of yours` : ""}.`
+      + (all > 1 ? " Drag to change the order; photo 1 comes first." : "")
+      + (all > n ? ` This type uses ${n}; the faded one${all - n > 1 ? "s are" : " is"} left out.` : all >= n ? " Remove one (✕) to add your own." : "");
+}
+function movePhoto(from, to) { const [p] = state.photos.splice(from, 1); state.photos.splice(to, 0, p); }
+let drag = null;
+function startDrag(e) {
+  if (e.target.closest(".x") || e.button > 0) return;
+  const li = e.currentTarget;
+  drag = { li, moved: false };
+  try { li.setPointerCapture(e.pointerId); } catch (err) { /* old browser */ }
+  li.classList.add("dragging");
+  const move = (ev) => {
+    const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest("#photoStrip .thumb");
+    if (!over || over === li) return;
+    const ul = $("photoStrip"), from = Number(li.dataset.i), to = Number(over.dataset.i);
+    movePhoto(from, to);
+    ul.insertBefore(li, to > from ? over.nextSibling : over);
+    [...ul.children].forEach((x, k) => { x.dataset.i = k; x.querySelector(".n").textContent = String(k + 1); });
+    drag.moved = true;
+  };
+  const end = () => {
+    li.removeEventListener("pointermove", move); li.classList.remove("dragging");
+    if (drag && drag.moved) { renderPhotos(); restart(); }
+    drag = null;
+  };
+  li.addEventListener("pointermove", move);
+  li.addEventListener("pointerup", end, { once: true }); li.addEventListener("pointercancel", end, { once: true });
+}
+function renderLogo() {
+  const has = !!state.logo;
+  $("logoThumb").hidden = !has;
+  if (has) drawInto($("logoThumb").querySelector("canvas"), state.logo, true);
+  $("logoPickText").textContent = has ? "Use my own instead" : "Use my own logo";
+  $("logoHint").textContent = !has ? "Optional: shown small in a corner of the video. It stays on your device."
+    : state.logo.vmFrom === "link" ? "Found on your page. Not your logo? ✕ removes it, or use your own." : "Your logo, shown small in a corner of the video.";
 }
 function refreshHookField() { // the hook field shows the newly written hook unless the user typed their own
   const inp = document.querySelector('#fields input[data-id="hook"]');
-  if (inp && !(inp.dataset.key in state.user) && document.activeElement !== inp) inp.value = val(inp.dataset.key);
+  if (inp && !(inp.dataset.key in state.user) && document.activeElement !== inp) { inp.value = plain(val(inp.dataset.key)); drawMarks(inp); }
 }
 
 function rawScenes() { return buildScenes(state.template, values(), { endcard: state.endcard, photos: state.photos.length }); }
@@ -285,7 +408,8 @@ function theme() {
 const look = () => { const th = theme(); return { theme: th, font: state.font || th.font, motion: state.motion, texture: state.texture || th.texture }; };
 function opts(extra = {}) {
   const [width, height] = SIZES[state.aspect];
-  return { width, height, ...look(), assets: { photos: state.photos, logo: state.logo }, captions: state.captions, ...extra };
+  return { width, height, ...look(), assets: { photos: state.photos, logo: state.logo }, captions: state.captions,
+    pack: packFor(state.theme), bpm: BEDS[state.bed] ? BEDS[state.bed].bpm : 100, ...extra };
 }
 const estimate = () => Math.round(totalDuration(timeline(scenes())) * 1.4 + 3); // measured: about 1.4× real time on a 4-core laptop
 
@@ -325,7 +449,7 @@ function frame() {
     $("exampleTag").hidden = hasData();
   }
   $("dur").textContent = `${total.toFixed(1)} s`;
-  if (live) drawSwatch(live.ctx, live.theme, (performance.now() / 1000) % 1.6, state.font, state.motion);
+  animateSwatches();
   requestAnimationFrame(frame);
 }
 async function playAudio() { // what the export will sound like, mixed live (the voice only once it's made)
@@ -565,7 +689,7 @@ const fontsReady = Promise.all(FONT_FILES.map(([family, file, weight]) => {
   } catch (e) { return null; }
 })).then(() => { drawSwatches(); drawTypeCards(); });
 
-let live = null; // the swatch that loops: the one under the pointer, else the chosen one
+
 const swatches = new Map();
 const SAVE = "vm-look";
 function lookUrl() {
@@ -588,7 +712,7 @@ function load() {
   const color = (v) => (/^#?[0-9a-f]{6}$/i.test(v || "") ? "#" + v.replace("#", "") : null);
   const wanted = q.get("theme") ?? preset.get("theme") ?? saved.theme;
   state.theme = pick("theme", (v) => THEME_IDS.includes(v) || v === "custom") || DEFAULT_THEME;
-  if (wanted && wanted !== state.theme) state.pendingTheme = wanted; // a Designer theme: picked once the pack loads
+  if (wanted && wanted !== state.theme) state.pendingTheme = wanted; // a Motion Pack: picked once the pack loads
   if (saved.custom) Object.keys(state.custom).forEach((k) => { state.custom[k] = color(saved.custom[k]) || state.custom[k]; });
   ["bg", "ink", "accent"].forEach((k) => { if (color(q.get(k))) state.custom[k] = color(q.get(k)); });
   state.font = pick("font", (v) => v === "" || v in FONTS) || "";
@@ -607,22 +731,40 @@ function swatchCard(id, name) {
   const badge = document.createElement("em"); badge.className = "badge";
   b.append(c, label, badge);
   b.addEventListener("click", () => pickTheme(id));
-  b.addEventListener("pointerenter", () => { const th = themeFor(id); if (th) live = { ctx: c.getContext("2d"), theme: th }; });
-  b.addEventListener("pointerleave", () => { drawSwatches(); setLive(); });
+  b.addEventListener("pointerenter", (e) => { if (e.pointerType === "mouse") hovered = id; });
+  b.addEventListener("pointerleave", () => { if (hovered === id) hovered = null; drawSwatches(); });
   swatches.set(id, { b, c });
+  if (seen) seen.observe(b);
   return b;
 }
 function drawSwatches() {
   swatches.forEach(({ c }, id) => {
     const th = themeFor(id), x = c.getContext("2d");
-    if (th) { drawSwatch(x, th, 1.2, state.font, state.motion); return; }
+    if (th) { drawSwatch(x, th, 1.2, state.font, state.motion, packFor(id)); return; }
     x.fillStyle = "#1b1e2c"; x.fillRect(0, 0, c.width, c.height);
     x.fillStyle = "#d6daec"; x.font = "600 15px system-ui, sans-serif"; x.textAlign = "center";
     x.fillText("Upload your logo", c.width / 2, c.height / 2 - 8); x.fillText("to use its colours", c.width / 2, c.height / 2 + 14);
     x.textAlign = "left";
   });
 }
-function setLive() { const s = swatches.get(state.theme), th = themeFor(state.theme); live = s && th ? { ctx: s.c.getContext("2d"), theme: th } : null; }
+function setLive() { /* the chosen card always loops (animateSwatches) */ }
+// Which cards play: the chosen one, the one under the mouse, and on a touch screen every Motion Pack card in view
+// (a 2–3 s loop of its signature move), so a phone shows what the pack does without hovering.
+let hovered = null;
+const inView = new Set();
+const touch = typeof matchMedia === "function" && matchMedia("(hover: none)").matches;
+const seen = typeof IntersectionObserver === "function"
+  ? new IntersectionObserver((es) => es.forEach((e) => { const id = e.target.dataset.theme; if (e.isIntersecting) inView.add(id); else inView.delete(id); }), { threshold: 0.4 })
+  : null;
+function animateSwatches() {
+  const now = performance.now() / 1000;
+  swatches.forEach(({ c }, id) => {
+    const pk = packFor(id), th = themeFor(id);
+    if (!th) return;
+    const play = id === state.theme || id === hovered || (pk && (touch || !seen) && inView.has(id) && state.step === 4);
+    if (play) drawSwatch(c.getContext("2d"), th, now % (pk ? 2.4 : 1.6), state.font, state.motion, pk);
+  });
+}
 function pickTheme(id) {
   if (id === "logo" && !state.logoLook) { state.wantLogoLook = true; $("logo").click(); return; }
   state.theme = id;
@@ -631,8 +773,8 @@ function pickTheme(id) {
   $("lockNote").hidden = !locked;
   if (locked) {
     $("lockNote").textContent = PACK.enabled
-      ? `${themeName(id)} is a Designer theme. Make your video with it: the preview is stamped, and you can unlock it after you've seen it (US$${PACK.prices.single}, or all 8 for US$${PACK.prices.pack}).`
-      : `${themeName(id)} is a Designer theme, coming soon. You can preview it; the free themes and Custom colours download free.`;
+      ? `${themeName(id)} is a Motion Pack: ${effectsLine(id)}. Make your video with it: the preview is stamped, and you can unlock it after you've seen it (US$${PACK.prices.single}, or all 8 for US$${PACK.prices.pack}).`
+      : `${themeName(id)} is a Motion Pack, coming soon: ${effectsLine(id)}. You can preview it; the free themes and Custom colours download free.`;
     gtagEvent("vm_premium_preview", { theme: id });
   }
   $("customBox").hidden = id !== "custom";
@@ -657,8 +799,9 @@ function readLogoColors() {
     state.logoLook = t ? { ...t, id: "logo", name: "Match my logo" } : null;
   }
   $("logoDots").innerHTML = (state.logoColors || []).slice(0, 3).map((x) => `<i style="background:${x.color}" title="${x.color}"></i>`).join("");
+  renderLogo();
   if (state.theme === "logo" && !state.logoLook) pickTheme(DEFAULT_THEME);
-  drawSwatches(); setLive();
+  drawSwatches();
 }
 function setAspect(a) {
   state.aspect = a;
@@ -687,11 +830,14 @@ function initLook() {
   pickTheme(state.theme);
 }
 
-// ------------------------------------------------------------------------------------------- the Designer themes
+// ------------------------------------------------------------------------------------------- the Motion Packs
 // Optional paid themes (a separate content pack, not part of this program). Anyone can make a full preview with one;
 // it's stamped until the theme is unlocked, then the clean video is re-made.
 const API = apiBase();
 let PACK = { enabled: false, themes: [], links: {}, prices: { single: 3, pack: 5, currency: "USD" } };
+let MOTION = {}; // the Motion Packs, by theme id (loaded from the server; none without one)
+const packFor = (id) => (isPremium(id) && MOTION[id]) || null;
+const effectsLine = (id) => { const e = (MOTION[id] && MOTION[id].effects) || []; return e.length ? e.slice(0, 4).join(", ") + (e.length > 4 ? ` and ${e.length - 4} more` : "") : "its own transitions and text animation"; };
 const isPremium = (id) => !!API && PACK.loaded && (id === "logo" || PACK.themes.some((x) => x.id === id));
 const isLocked = (id) => isPremium(id) && !claimedIds().has(id);
 const themeName = (id) => (id === "logo" ? "Match my logo" : (themeFor(id) || {}).name || id);
@@ -700,11 +846,18 @@ function badges() {
   const owned = claimedIds();
   swatches.forEach(({ b }, id) => {
     const el = b.querySelector(".badge");
-    if (!isPremium(id)) { el.textContent = PACK.loaded ? "FREE" : ""; el.className = "badge free"; return; }
+    if (!isPremium(id)) { el.textContent = PACK.loaded ? "Basic motion · FREE" : ""; el.className = "badge free"; return; }
     el.className = "badge pro";
-    el.textContent = owned.has(id) ? "Unlocked" : id === "logo" ? `PRO · in the $${PACK.prices.pack} pack` : PACK.enabled ? `PRO · $${PACK.prices.single}` : "PRO · soon";
-    if (!owned.has(id)) el.prepend(Object.assign(document.createElement("span"), { className: "lock", textContent: "🔒 " }));
+    el.textContent = id === "logo" ? (owned.has(id) ? "Unlocked" : `PRO · in the $${PACK.prices.pack} pack`)
+      : `✨ Motion Pack · ${owned.has(id) ? "Unlocked" : PACK.enabled ? `$${PACK.prices.single}` : "soon"}`;
+    if (!owned.has(id) && id === "logo") el.prepend(Object.assign(document.createElement("span"), { className: "lock", textContent: "🔒 " }));
   });
+}
+function playCompare() { // the 10 s "Free vs Motion Pack" clip, fetched only once someone reaches the Look step
+  const v = $("compareVideo");
+  if ($("compareBox").hidden || !v) return;
+  if (!v.src) v.src = v.dataset.src;
+  v.play().catch(() => { v.controls = true; });
 }
 function checkoutLink(item) { return PACK.enabled && PACK.links[item] ? PACK.links[item] : null; }
 
@@ -720,19 +873,22 @@ async function initPack() {
   }));
   $("pwRestore").addEventListener("submit", async (e) => {
     e.preventDefault();
-    try { await restore(API, $("pwEmail").value.trim()); $("pwRestoreMsg").textContent = "If that email bought Designer themes, a restore link is on its way. Check your inbox (and spam)."; }
+    try { await restore(API, $("pwEmail").value.trim()); $("pwRestoreMsg").textContent = "If that email bought Motion Packs, a restore link is on its way. Check your inbox (and spam)."; }
     catch (err) { $("pwRestoreMsg").textContent = `Sorry, that didn't work: ${err.message}`; }
   });
   $("useFree").addEventListener("click", () => { pickTheme(DEFAULT_THEME); doMake(); });
   const pack = await loadPack(API);
   if (!pack) return; // no server (e.g. a copy of the open-source tool): free themes only
   PACK = { ...PACK, ...pack, loaded: true };
+  MOTION = await loadMotion(API, pack.packs);
   const row = $("themes"), logoCard = swatches.get("logo").b;
   PACK.themes.forEach((t) => row.insertBefore(swatchCard(t.id, t.name), logoCard));
   $("packRow").hidden = false;
+  $("compareBox").hidden = !Object.keys(MOTION).length;
+  if (state.step === 4) playCompare();
   if (checkoutLink("pack")) $("packBanner").href = checkoutLink("pack");
-  $("packBannerText").textContent = PACK.enabled ? `Designer themes: US$${PACK.prices.single} each, or all 8 plus Match my logo for US$${PACK.prices.pack}. One-time; it keeps this tool free.`
-    : "Designer themes: 8 more looks plus Match my logo, coming soon. Preview them now; the free themes and Custom colours download free.";
+  $("packBannerText").textContent = PACK.enabled ? `Motion Packs: 8 paid themes with their own transitions, kinetic text and effects. US$${PACK.prices.single} each, or all 8 plus Match my logo for US$${PACK.prices.pack}. One-time; it keeps this tool free.`
+    : "Motion Packs: 8 paid themes with their own transitions, kinetic text and effects, plus Match my logo, coming soon. Preview them now; the free themes and Custom colours download free.";
   $("packBanner").textContent = PACK.enabled ? `Get all 8 for US$${PACK.prices.pack}` : "Coming soon";
   drawSwatches(); badges();
   const q = new URLSearchParams(location.search);
@@ -754,8 +910,8 @@ async function initPack() {
 function thank(kind, ids = []) {
   const n = ids.filter((i) => i !== "logo").length;
   $("unlockMsg").hidden = false;
-  $("unlockMsg").textContent = kind === "restored" ? "Your Designer themes are restored on this browser."
-    : `Thank you! ${n === 8 ? "All 8 Designer themes and Match my logo are" : n === 1 ? `${themeName(ids[0])} is` : `${n} themes are`} unlocked on this browser. We're re-making your video without the stamp now. Your Stripe receipt is your proof of purchase.`;
+  $("unlockMsg").textContent = kind === "restored" ? "Your Motion Packs are restored on this browser."
+    : `Thank you! ${n === 8 ? "All 8 Motion Packs and Match my logo are" : n === 1 ? `${themeName(ids[0])} is` : `${n} themes are`} unlocked on this browser. We're re-making your video without the stamp now. Your Stripe receipt is your proof of purchase.`;
   badges();
 }
 
@@ -788,15 +944,20 @@ function init() {
   if (!API) { $("fromUrlForm").hidden = true; $("fromUrlStatus").hidden = true; $("noServer").hidden = false; }
   // 3. the words
   $("changeType").addEventListener("click", () => go(1));
-  $("photos").addEventListener("change", async (e) => {
-    const n = TEMPLATES[state.template].photos;
-    state.photos = await Promise.all([...e.target.files].slice(0, n).map(readImage)); renderFields(); restart();
+  $("photos").addEventListener("change", async (e) => { // adds to the photos already there, up to the type's limit
+    const room = Math.max(0, (TEMPLATES[state.template].photos || 0) - state.photos.length);
+    const add = await Promise.all([...e.target.files].slice(0, room).map(readImage));
+    add.forEach((img) => { img.vmFrom = "you"; });
+    state.photos = [...state.photos, ...add]; e.target.value = "";
+    renderPhotos(); restart();
   });
+  $("logoRemove").addEventListener("click", () => { state.logo = null; readLogoColors(); restart(); });
   // 4. the look (and what changes the video's length)
   $("endcard").addEventListener("change", (e) => { state.endcard = e.target.checked; restart(); });
   $("captions").addEventListener("change", (e) => { state.captions = e.target.checked; });
   $("logo").addEventListener("change", async (e) => {
-    state.logo = e.target.files[0] ? await readImage(e.target.files[0]) : null;
+    if (!e.target.files[0]) return;
+    state.logo = await readImage(e.target.files[0]); state.logo.vmFrom = "you"; e.target.value = "";
     readLogoColors();
     if (state.wantLogoLook && state.logoLook) pickTheme("logo");
   });
@@ -864,5 +1025,14 @@ function init() {
 }
 window.__vmStill = (t, extra = {}) => { const tl = timeline(scenes()); drawFrame(ctx, tl, t < 0 ? totalDuration(tl) + t : t, opts(extra)); return canvas.toDataURL("image/png"); }; // a test hook: t < 0 counts from the end
 window.__vmGo = go; // a test hook: jump to a step
+window.__vmBench = (n = 120) => { // a test hook: ms per 1080×1920 frame with the current look, drawing only (no encoding)
+  const tl = timeline(scenes()), total = totalDuration(tl);
+  const c = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(1080, 1920) : Object.assign(document.createElement("canvas"), { width: 1080, height: 1920 }); // as the export draws
+  const x = c.getContext("2d"), o = opts({ width: 1080, height: 1920 }), t0 = performance.now();
+  for (let i = 0; i < n; i++) drawFrame(x, tl, (i / n) * total, o);
+  x.getImageData(0, 0, 1, 1); // wait for the GPU to finish
+  return (performance.now() - t0) / n;
+};
+window.__vmClearPhotos = () => { state.photos = []; renderPhotos(); restart(); }; // a test hook: start the photos again
 window.__vmType = (t) => pickType(t, false); // a test hook: choose a type without moving
 init();

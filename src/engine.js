@@ -12,6 +12,9 @@ const easeInOut = (x) => (x = clamp(x), x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-
 
 // the frame being drawn uses one motion style and one font pair (set at the top of drawFrame)
 let M = MOTIONS.smooth, HEAD = FONTS.inter.head, NOW = 0; // NOW: the frame time, for effects that shimmer
+// An optional motion pack (a plug-in object, opts.pack) can draw words, photos, pills, end cards, backgrounds, overlays
+// and transitions its own way. Without one, everything below is the basic motion. ENV describes the frame for it.
+let PK = null, ENV = {};
 const span = (len) => len * M.len / 0.45;
 /** Opacity of something entering at `start`: 0..1. */
 const fadeIn = (t, start, len = 0.45) => easeOut((t - start) / span(len));
@@ -78,12 +81,21 @@ function headline(ctx, text, x, y, maxWidth, size, theme, opts = {}) {
   const space = ctx.measureText(" ").width;
   ctx.textBaseline = "top";
   ctx.globalAlpha = alpha;
+  const count = lines.reduce((a, l) => a + l.length, 0);
+  let k = 0;
   lines.forEach((line, i) => {
     const lw = line.reduce((a, wd, j) => a + ctx.measureText(wd.w).width + (j ? space : 0), 0);
     let cx = align === "center" ? x + (maxWidth - lw) / 2 : x;
     const ly = y + i * lh + lift;
     line.forEach((wd, j) => {
       const ww = ctx.measureText(wd.w).width;
+      const info = { text: wd.w, x: cx, y: ly, w: ww, size: real, accent: wd.accent, index: k++, count, line: i, lines: lines.length,
+        body, alpha, theme, font: ctx.font, fill: wd.accent ? theme.highlight : theme.ink };
+      if (PK && PK.word) { // the pack draws the word its own way (pop, flip, typewriter, shimmer…)
+        ctx.save(); PK.word(ctx, info, ENV, PACK_API); ctx.restore();
+        cx += ww + space;
+        return;
+      }
       if (wd.accent && theme.highlightStyle === "box") { // one box across neighbouring highlighted words
         const joined = line[j + 1] && line[j + 1].accent ? space : 0;
         ctx.fillStyle = theme.accent;
@@ -113,6 +125,10 @@ function roundRect(ctx, x, y, w, h, r) {
 /** Cover-fit an image into a box, with a slow push-in (Ken Burns). */
 function photo(ctx, img, x, y, w, h, progress, radius) {
   if (!img) return;
+  if (PK && PK.photo) { ctx.save(); const done = PK.photo(ctx, img, { x, y, w, h, p: progress, radius }, ENV, PACK_API); ctx.restore(); if (done) return; }
+  basePhoto(ctx, img, x, y, w, h, progress, radius);
+}
+function basePhoto(ctx, img, x, y, w, h, progress, radius) {
   const zoom = 1.04 + 0.08 * progress;
   const s = Math.max(w / img.width, h / img.height) * zoom;
   const iw = img.width * s, ih = img.height * s;
@@ -175,6 +191,11 @@ function scene(ctx, s, lt, W, H, theme, assets) {
   const lift = (1 - moveIn(lt, 0.0, 0.5)) * M.lift;
   const p = clamp(lt / Math.max(0.1, s.dur));
   const big = portrait ? 96 : 92;
+  ENV.role = s.type; ENV.part = "text"; // what a pack is being asked to draw
+  if ((s.type === "cta" || s.type === "endcard") && PK && PK.endcard) {
+    ctx.save(); const done = PK.endcard(ctx, s, lt, { pad, top, big, portrait }, ENV, PACK_API); ctx.restore();
+    if (done) return;
+  }
 
   if (s.type === "hook" || s.type === "title") {
     if (s.kicker) kicker(ctx, s.kicker, pad, top + lift, portrait ? 34 : 30, theme, enter);
@@ -183,14 +204,14 @@ function scene(ctx, s, lt, W, H, theme, assets) {
   } else if (s.type === "product") {
     const img = assets.photos[s.photo || 0];
     if (portrait) {
-      photo(ctx, img, pad, top, W - pad * 2, H * 0.36, p, theme.radius);  // ends at 0.53 H, clear of the caption at 0.79 H
+      ENV.part = "photo"; photo(ctx, img, pad, top, W - pad * 2, H * 0.36, p, theme.radius);  // ends at 0.53 H, clear of the caption at 0.79 H
       const y = top + H * 0.39;
-      const hh = headline(ctx, s.headline, pad, y + lift, W - pad * 2, 74, theme, { alpha: enter, maxLines: 2 });
-      if (s.price) pill(ctx, s.price, pad, y + hh + 28 + lift, 54, theme, fadeIn(lt, 0.35), W, moveIn(lt, 0.35));
+      ENV.part = "text"; const hh = headline(ctx, s.headline, pad, y + lift, W - pad * 2, 74, theme, { alpha: enter, maxLines: 2 });
+      ENV.part = "price"; if (s.price) pill(ctx, s.price, pad, y + hh + 28 + lift, 54, theme, fadeIn(lt, 0.35), W, moveIn(lt, 0.35));
     } else {
-      photo(ctx, img, W * 0.5, top, W * 0.43, H * 0.66, p, theme.radius);
-      headline(ctx, s.headline, pad, top + 40 + lift, W * 0.38, 80, theme, { alpha: enter, maxLines: 3 });
-      if (s.price) pill(ctx, s.price, pad, top + 320 + lift, 54, theme, fadeIn(lt, 0.35), W, moveIn(lt, 0.35));
+      ENV.part = "photo"; photo(ctx, img, W * 0.5, top, W * 0.43, H * 0.66, p, theme.radius);
+      ENV.part = "text"; headline(ctx, s.headline, pad, top + 40 + lift, W * 0.38, 80, theme, { alpha: enter, maxLines: 3 });
+      ENV.part = "price"; if (s.price) pill(ctx, s.price, pad, top + 320 + lift, 54, theme, fadeIn(lt, 0.35), W, moveIn(lt, 0.35));
     }
   } else if (s.type === "points") {
     if (s.kicker) kicker(ctx, s.kicker, pad, top, portrait ? 34 : 30, theme, enter);
@@ -211,9 +232,24 @@ function scene(ctx, s, lt, W, H, theme, assets) {
     ctx.globalAlpha = 1;
   } else if (s.type === "photo") {
     const img = assets.photos[s.photo || 0];
-    photo(ctx, img, 0, 0, W, H, p, 0);
+    ENV.part = "fullphoto"; photo(ctx, img, 0, 0, W, H, p, 0); ENV.part = "text";
     ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(0, 0, W, H);
-    headline(ctx, s.headline, pad, top + lift, W - pad * 2, big * 0.85, { ...theme, ink: "#ffffff", highlight: "#ffffff", highlightStyle: "color" }, { alpha: enter, maxLines: 4 });
+    const shade = ctx.createLinearGradient(0, 0, 0, H * 0.55); // white words stay readable on a bright product photo
+    shade.addColorStop(0, "rgba(0,0,0,0.5)"); shade.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = shade; ctx.fillRect(0, 0, W, H * 0.55);
+    const hh = headline(ctx, s.headline, pad, top + lift, W - pad * 2, big * 0.85, { ...theme, ink: "#ffffff", highlight: "#ffffff", highlightStyle: "color" }, { alpha: enter, maxLines: 4 });
+    if (s.price) { // a real discount on a real price: the old price struck through, the new one below
+      const py = top + hh + 50;
+      if (s.was && !(PK && PK.was)) {
+        ctx.font = bf(portrait ? 50 : 44, 700); ctx.textBaseline = "top"; ctx.fillStyle = "#ffffff"; ctx.globalAlpha = enter * 0.85;
+        ctx.fillText(s.was, pad, py);
+        ctx.fillRect(pad - 6, py + (portrait ? 26 : 23), (ctx.measureText(s.was).width + 12) * easeOut((lt - 0.3) / 0.4), 6);
+        ctx.globalAlpha = 1;
+      }
+      ENV.part = "price"; ENV.was = s.was || "";
+      pill(ctx, s.price, pad, py + (s.was ? 80 : 0), 58, theme, fadeIn(lt, 0.6), W, moveIn(lt, 0.6));
+      ENV.was = "";
+    }
   } else if (s.type === "cta" || s.type === "endcard") {
     const cy = portrait ? H * 0.32 : H * 0.28;
     const style = s.type === "endcard" ? theme.endcard : "center";
@@ -235,7 +271,7 @@ function scene(ctx, s, lt, W, H, theme, assets) {
       ctx.setLineDash([len * easeOut(lt / 1.2), len]);
       roundRect(ctx, inset, inset, W - inset * 2, H - inset * 2, theme.radius); ctx.stroke(); ctx.restore();
     }
-    if (s.button) pill(ctx, s.button, null, cy + h + 60, portrait ? 52 : 48, theme, fadeIn(lt, 0.35), W, moveIn(lt, 0.35));
+    ENV.part = "button"; if (s.button) pill(ctx, s.button, null, cy + h + 60, portrait ? 52 : 48, theme, fadeIn(lt, 0.35), W, moveIn(lt, 0.35));
     if (s.small) {
       ctx.font = bf(portrait ? 36 : 32, 600); ctx.fillStyle = theme.muted; ctx.textAlign = "center";
       ctx.textBaseline = "top"; ctx.globalAlpha = fadeIn(lt, 0.6);
@@ -246,6 +282,10 @@ function scene(ctx, s, lt, W, H, theme, assets) {
 
 /** The price or button pill, in the theme's style; `pop` (0..1, may overshoot) scales it in. */
 function pill(ctx, text, x, y, fs, theme, alpha, W, pop = 1) {
+  if (PK && PK.pill) { ctx.save(); const done = PK.pill(ctx, { text, x, y, fs, theme, alpha, W, pop }, ENV, PACK_API); ctx.restore(); if (done) return; }
+  basePill(ctx, text, x, y, fs, theme, alpha, W, pop);
+}
+function basePill(ctx, text, x, y, fs, theme, alpha, W, pop = 1) {
   ctx.font = bf(fs, 800);
   const w = ctx.measureText(text).width + fs * 1.4, h = fs * 1.8;
   const px = x == null ? (W - w) / 2 : x;
@@ -350,27 +390,87 @@ function texture(ctx, th, kind, W, H, t) {
   }
 }
 
-/** Draw the whole frame at time t. opts: {width, height, theme, font, motion, texture, assets, captions} */
+// ------------------------------------------------------------------------------------------------ motion packs
+const offs = [];
+/** A reusable off-screen canvas (k = slot), the size of the video. */
+function off(k, W, H) {
+  let o = offs[k];
+  if (!o || o.canvas.width !== W || o.canvas.height !== H) {
+    const c = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(W, H) : Object.assign(document.createElement("canvas"), { width: W, height: H });
+    o = offs[k] = { canvas: c, ctx: c.getContext("2d") };
+  }
+  return o;
+}
+const rng = (seed) => { let s = (seed >>> 0) % 2147483647 || 1; return () => (s = (s * 16807) % 2147483647) / 2147483647; };
+/** What a motion pack may use: the engine's own drawing pieces, timing helpers and a seeded random source. */
+export const PACK_API = {
+  clamp, easeOut, easeInOut, rgba, roundRect, wrap, rng, off,
+  fadeIn: (t, s, l) => fadeIn(t, s, l), moveIn: (t, s, l) => moveIn(t, s, l),
+  headFont: (size) => hf(size), bodyFont: (size, weight) => bf(size, weight),
+  basePhoto, basePill, headline: (...a) => headline(...a), kicker,
+  beat: (t, bpm) => { const b = 60 / (bpm || 100); return { n: Math.floor(t / b), phase: (t % b) / b, len: b }; },
+};
+
+/** One scene's full picture (background, texture, the pack's background layer, the scene) at its own local time. */
+function sceneFrame(ctx, s, lt, W, H, theme, assets, t, texKind) {
+  const keep = { s: ENV.s, lt: ENV.lt, role: ENV.role, part: ENV.part };
+  ENV.s = s; ENV.lt = lt;
+  background(ctx, theme, W, H, t);
+  texture(ctx, theme, texKind, W, H, t);
+  if (PK && PK.bg) { ctx.save(); PK.bg(ctx, ENV, PACK_API); ctx.restore(); }
+  ctx.save(); scene(ctx, s, lt, W, H, theme, assets); ctx.restore();
+  Object.assign(ENV, keep);
+}
+
+/** Draw the whole frame at time t. opts: {width, height, theme, font, motion, texture, assets, captions, pack, bpm, stamp} */
 export function drawFrame(ctx, tl, t, opts) {
   const { width: W, height: H, theme, assets } = opts;
   M = MOTIONS[opts.motion] || MOTIONS.smooth;
   HEAD = (FONTS[opts.font] || FONTS[theme.font] || FONTS.inter).head;
   NOW = t;
-  background(ctx, theme, W, H, t);
-  texture(ctx, theme, opts.texture ?? theme.texture, W, H, t);
-  const s = tl.find((x) => t >= x.start && t < x.start + x.dur) || tl[tl.length - 1];
-  if (!s) return;
+  PK = opts.pack || null;
+  const texKind = opts.texture ?? theme.texture;
+  let i = tl.findIndex((x) => t >= x.start && t < x.start + x.dur);
+  if (i < 0) i = tl.length - 1;
+  const s = tl[i];
+  if (!s) { background(ctx, theme, W, H, t); return; }
   const lt = t - s.start;
-  const out = 1 - easeInOut((lt - (s.dur - 0.25)) / 0.25);
+  ENV = { W, H, t, lt, s, i, n: tl.length, theme, assets, portrait: H > W, bpm: opts.bpm || 100, role: s.type, part: "text" };
   ctx.save();
-  ctx.globalAlpha = s === tl[tl.length - 1] ? 1 : out;
-  scene(ctx, s, lt, W, H, theme, assets);
-  ctx.restore();
-  if (assets.logo) { // the user's logo, small, top left
+  const shake = PK && PK.shake ? PK.shake(ENV, PACK_API) : null;
+  if (shake) { ctx.fillStyle = theme.surface || "#000"; ctx.fillRect(0, 0, W, H); ctx.translate(shake[0], shake[1]); }
+  const TR = PK && PK.transition ? (PK.transitionLen || 0.4) : 0;
+  let pair = null;
+  if (TR) { // a pack's transition straddles each cut: half at the end of one scene, half at the start of the next
+    if (i + 1 < tl.length && t > s.start + s.dur - TR / 2) pair = [s, tl[i + 1], (t - (s.start + s.dur - TR / 2)) / TR];
+    else if (i > 0 && t < s.start + TR / 2) pair = [tl[i - 1], s, (t - (s.start - TR / 2)) / TR];
+  }
+  if (pair) {
+    const [a, b, p] = pair, A = off(0, W, H), B = off(1, W, H);
+    sceneFrame(A.ctx, a, t - a.start, W, H, theme, assets, t, texKind);
+    sceneFrame(B.ctx, b, Math.max(0, t - b.start), W, H, theme, assets, t, texKind);
+    ENV.from = a; ENV.to = b;
+    ctx.save(); PK.transition(ctx, A.canvas, B.canvas, clamp(p), ENV, PACK_API); ctx.restore();
+  } else if (PK && PK.transition) {
+    sceneFrame(ctx, s, lt, W, H, theme, assets, t, texKind);
+  } else {
+    background(ctx, theme, W, H, t);
+    texture(ctx, theme, texKind, W, H, t);
+    if (PK && PK.bg) { ctx.save(); PK.bg(ctx, ENV, PACK_API); ctx.restore(); }
+    const out = 1 - easeInOut((lt - (s.dur - 0.25)) / 0.25);
+    ctx.save();
+    ctx.globalAlpha = s === tl[tl.length - 1] ? 1 : out;
+    scene(ctx, s, lt, W, H, theme, assets);
+    ctx.restore();
+  }
+  ENV.s = s; ENV.lt = lt; ENV.role = s.type;
+  if (assets.logo && !(PK && PK.hidesLogo && PK.hidesLogo(ENV))) { // the user's logo, small, top left
     const lh = H > W ? 90 : 80, lw = lh * assets.logo.width / assets.logo.height;
     ctx.drawImage(assets.logo, H > W ? W * 0.08 : W * 0.07, H > W ? H * 0.06 : H * 0.05, Math.min(lw, W * 0.4), lh);
   }
   if (opts.captions !== false && s.line && s.type !== "endcard") caption(ctx, s.line, W, H, lt, s.dur, theme, H > W);
+  if (PK && PK.overlay) { ctx.save(); PK.overlay(ctx, ENV, PACK_API); ctx.restore(); }
+  ctx.restore();
   if (opts.stamp) stamp(ctx, W, H);
 }
 
@@ -397,14 +497,20 @@ function stamp(ctx, W, H) {
 }
 
 /** A one-second swatch loop for the theme picker: a word, a highlight and a pill, drawn small. */
-export function drawSwatch(ctx, theme, t, font, motion) {
+export function drawSwatch(ctx, theme, t, font, motion, pack) {
   const W = ctx.canvas.width, H = ctx.canvas.height, k = W / 360;
   M = MOTIONS[motion] || MOTIONS.smooth;
   HEAD = (FONTS[font] || FONTS[theme.font] || FONTS.inter).head;
   NOW = t;
+  PK = null;
   ctx.save(); ctx.scale(k, k);
   background(ctx, theme, 360, H / k, t);
   texture(ctx, theme, theme.texture, 360, H / k, t);
+  if (pack && pack.swatch) { // a motion pack shows its signature move in a 2–3 s loop
+    PK = pack; ENV = { W: 360, H: H / k, t, lt: t, theme, portrait: true, bpm: 110, role: "swatch", part: "text", assets: { photos: [] } };
+    pack.swatch(ctx, t, ENV, PACK_API);
+    PK = null; ctx.restore(); return;
+  }
   const lt = t % 1.6;
   headline(ctx, "Your *best* seller", 26, 44 + (1 - moveIn(lt, 0, 0.4)) * M.lift * 0.5, 308, 54, theme, { alpha: fadeIn(lt, 0, 0.4), maxLines: 2 });
   pill(ctx, "$29", 26, 186, 26, theme, fadeIn(lt, 0.3, 0.3), 360, moveIn(lt, 0.3, 0.3));

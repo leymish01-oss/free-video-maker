@@ -45,6 +45,19 @@ export async function loadPack(api) {
   } catch (e) { return null; }
 }
 
+/** The Designer themes' Motion Packs (their transitions, text animation and effects): code that leymish.com serves at
+ * run time, all rights reserved and not part of this program. The engine only offers the hooks they plug into.
+ * Returns {id: pack} or {} when there's no server. */
+export async function loadMotion(api, version) {
+  if (!api) return {};
+  try {
+    const r = await fetch(`${api}/v1/vm/packs.js?v=${encodeURIComponent(version || "")}`);
+    if (!r.ok) return {};
+    const url = URL.createObjectURL(new Blob([await r.text()], { type: "text/javascript" }));
+    try { return (await import(/* @vite-ignore */ url)).PACKS || {}; } finally { URL.revokeObjectURL(url); }
+  } catch (e) { return {}; }
+}
+
 /** May this theme be exported? Asks the server with each saved token (cached for the visit). */
 export async function canExport(api, id) {
   if (verified.has(id)) return true;

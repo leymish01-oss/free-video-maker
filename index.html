@@ -46,8 +46,27 @@
   .swatch:hover { border-color: var(--line); }
   .swatch:focus-visible { outline: 3px solid var(--cta, #ff7a2e); outline-offset: 2px; }
   .swatch[aria-pressed=true] { border-color: var(--navy, #0b1f3f); }
-  .swatch .badge { font: 700 10.5px/1 var(--mono); letter-spacing: .04em; font-style: normal; justify-self: start; padding: 3px 6px; border-radius: 999px; }
+  .swatch .badge { font: 700 10.5px/1.1 system-ui, -apple-system, "Segoe UI", sans-serif; font-style: normal; justify-self: start; padding: 3px 7px; border-radius: 999px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
   .swatch .badge:empty { display: none; }
+  .compare { margin: 0 0 12px; display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr); gap: 12px; align-items: center; min-width: 0; }
+  .compare video { width: 100%; aspect-ratio: 9 / 8; border-radius: 12px; background: #0b1f3f; display: block; object-fit: cover; }
+  .compare figcaption { font-size: 14px; }
+  @media (max-width: 560px) { .compare { grid-template-columns: minmax(0, 1fr); } .compare video { max-width: 340px; } } /* minmax(0,…): the video's own 1080 px width must never widen the page */
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .media { margin: 14px 0 0; } .mlabel { margin: 0 0 6px; font-weight: 600; }
+  .filebtn { cursor: pointer; padding: 9px 16px; font-size: 15px; } .filebtn:focus-within { outline: 3px solid var(--cta, #ff7a2e); outline-offset: 2px; }
+  .thumbs { list-style: none; margin: 0 0 8px; padding: 0; display: flex; gap: 10px; flex-wrap: wrap; }
+  .thumbs:empty { display: none; }
+  .thumb { position: relative; width: 84px; height: 84px; border-radius: 10px; overflow: visible; background: #eef0f6; touch-action: none; cursor: grab; display: inline-block; }
+  .thumb canvas { width: 84px; height: 84px; border-radius: 10px; display: block; }
+  .thumb.logo { cursor: default; touch-action: auto; } .thumb.dragging { opacity: .55; outline: 2px dashed var(--navy, #0b1f3f); }
+  .thumb:focus-visible { outline: 3px solid var(--cta, #ff7a2e); outline-offset: 2px; }
+  .thumb .n { position: absolute; left: 4px; bottom: 4px; background: rgba(11,31,63,.85); color: #fff; font: 700 11px/1 system-ui, sans-serif; padding: 3px 5px; border-radius: 6px; }
+  .thumb .x { position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; background: #0b1f3f; color: #fff; font: 700 12px/1 system-ui, sans-serif; cursor: pointer; padding: 0; }
+  .hlrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0 2px; font-size: 14px; }
+  .hlbtn { border: 1px solid var(--line); background: var(--surface, #fff); border-radius: 999px; padding: 4px 10px; font: 600 14px/1.2 inherit; cursor: pointer; color: var(--ink); }
+  .chip { display: inline-flex; gap: 4px; align-items: center; background: #fff3c4; color: #5a3d00; border-radius: 999px; padding: 3px 4px 3px 10px; font-weight: 600; }
+  .chip button { border: 0; background: transparent; cursor: pointer; font: 700 12px/1 system-ui, sans-serif; color: inherit; padding: 2px 5px; }
   .swatch .badge.free { background: #e3f4ec; color: #14532d; } .swatch .badge.pro { background: #fdeee4; color: #8a3507; }
   .packrow { margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
   .pbtn { background: var(--cta, #ff7a2e); color: var(--cta-ink, #0b1f3f); border-radius: 999px; padding: 7px 14px; font-weight: 700; text-decoration: none; }
@@ -92,7 +111,10 @@
   #resultVideo { width: 100%; max-width: 400px; border-radius: 14px; background: #000; }
   #logoDots i { display: inline-block; width: 18px; height: 18px; border-radius: 50%; margin-right: 4px; vertical-align: middle; border: 1px solid var(--line); }
   input[type=color] { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 2px; }
-  .gallery { margin: 40px 0 10px; } .gal { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .gallery { margin: 40px 0 10px; } .gal { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  @media (max-width: 760px) { .gal { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .gal .tag { font: 700 10.5px/1 var(--mono); letter-spacing: .04em; padding: 3px 6px; border-radius: 999px; margin-right: 4px; }
+  .gal .tag.free { background: #e3f4ec; color: #14532d; } .gal .tag.pro { background: #fdeee4; color: #8a3507; }
   .gal figure { margin: 0; } .gal figure.wide { grid-column: 1 / -1; }
   .gal video { width: 100%; border-radius: 14px; background: #000; display: block; }
   .gal figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
@@ -159,13 +181,29 @@
         <p id="blurb" class="small"></p>
         <p class="small">Tip: keep each line short; it reads better on a phone. Grey text is only an example.</p>
         <div id="fields" class="panel"></div>
-        <div id="photosRow"><label>Photos<input id="photos" type="file" accept="image/*" multiple></label>
-          <p id="photoHint" class="small"></p></div>
+        <div id="photosRow" class="media">
+          <p class="mlabel">Photos <span id="photoCount" class="small"></span></p>
+          <ul id="photoStrip" class="thumbs" aria-label="Photos in your video, in order"></ul>
+          <label class="btn filebtn" id="addPhotos">+ Add your own<input id="photos" type="file" accept="image/*" multiple class="vh"></label>
+          <p id="photoHint" class="small"></p>
+        </div>
+        <div id="logoRow" class="media">
+          <p class="mlabel">Logo <span id="logoDots" title="Colours found in your logo"></span></p>
+          <div class="row">
+            <span id="logoThumb" class="thumb logo" hidden><canvas width="160" height="160" aria-hidden="true"></canvas><button type="button" id="logoRemove" class="x" aria-label="Remove the logo">✕</button></span>
+            <label class="btn filebtn" id="logoPick"><span id="logoPickText">Use my own logo</span><input id="logo" type="file" accept="image/*" class="vh"></label>
+          </div>
+          <p id="logoHint" class="small"></p>
+        </div>
         <div class="navrow"><button class="btn" type="button" data-nav="back">← Back</button><button class="btn primary" type="button" data-nav="next">Next: your look →</button></div>
       </section>
 
       <section class="step" data-step="4" aria-labelledby="s4h" hidden>
         <h2 id="s4h">Your look</h2>
+        <figure id="compareBox" class="compare" hidden>
+          <video id="compareVideo" muted loop playsinline preload="none" data-src="./samples/free-vs-motion-pack.mp4" poster="./samples/free-vs-motion-pack.jpg"></video>
+          <figcaption><b>Free theme</b> (left, basic motion) vs <b>✨ Motion Pack</b> (right): the same words and photo.</figcaption>
+        </figure>
         <p id="lockNote" class="note small" hidden></p>
         <div id="themes" role="group" aria-label="Video themes"></div>
         <div id="packRow" class="packrow" hidden><span id="packBannerText"></span> <a id="packBanner" class="pbtn" href="#">Get all 8</a></div>
@@ -188,9 +226,6 @@
             <label>Fonts <select id="font"><option id="fontDefault" value="">Theme's own</option></select></label>
             <label>Motion <select id="motion"></select></label>
             <label>Texture <select id="texture"><option id="textureDefault" value="">Theme's own</option></select></label>
-          </div>
-          <div class="row" style="margin-top:10px">
-            <label>Logo <input id="logo" type="file" accept="image/*"></label> <span id="logoDots" title="Colours found in your logo"></span>
           </div>
           <div class="row" style="margin-top:6px">
             <label><input id="captions" type="checkbox" checked> Captions</label>
@@ -241,7 +276,7 @@
             <p class="small" style="margin:0">Unlock <span id="proName"></span> to download it without the stamp. We'll re-make it for you right away.</p>
             <p class="row" style="margin:0"><a id="pwSingle" class="btn primary" href="#">Unlock this theme and download: US$3</a>
               <a id="pwPack" class="btn" href="#">All 8 + Match my logo: US$5</a></p>
-            <p id="pwSoon" class="small" hidden>Designer themes are coming soon. Until then, the free themes download free.</p>
+            <p id="pwSoon" class="small" hidden>Motion Packs are coming soon. Until then, the free themes download free.</p>
             <p class="small" style="margin:0"><strong>Where your money goes:</strong> these few dollars keep the video maker free
               for everyone and pay for better free features. One-time, no subscription; prices in US dollars, so your bank may
               convert. If it doesn't work for you, we refund it (<a href="/terms/#designer-themes">terms</a>).</p>
@@ -258,7 +293,7 @@
             <button class="btn" id="makeAnother" type="button">Make another</button>
           </div>
           <p class="small" style="margin:0">Want to change something? <button id="editAgain" class="linkbtn" type="button">Edit the words or look</button>, then make it again.</p>
-          <div id="buyerNote" class="note" hidden><strong>Thank you for buying Designer themes.</strong> One more thing we do:
+          <div id="buyerNote" class="note" hidden><strong>Thank you for buying Motion Packs.</strong> One more thing we do:
             if Google Shopping ever disapproves your products or suspends your Merchant Center account, our
             <a href="/woocommerce/google-merchant-center/?utm_source=video-maker&amp;utm_medium=tool&amp;utm_campaign=vm-buyer">Merchant Center Fix</a>
             is US$99, done for you.</div>
@@ -295,17 +330,17 @@
       </div>
       <div class="row" id="previewRow"><button class="btn" id="playBtn" type="button">▶ Play</button><span class="small">Length: <span id="dur"></span></span></div>
       <p class="small">Free and open source (GPL-3): <a href="https://github.com/leymish01-oss/free-video-maker">source on GitHub</a>.
-        Designer themes are a separate paid content pack. Works best in Chrome or Edge on a computer or Android phone.</p>
+        Motion Packs are a separate paid content pack. Works best in Chrome or Edge on a computer or Android phone.</p>
     </div>
   </div>
   <section class="gallery" aria-labelledby="madewith">
     <h2 id="madewith">Made with LeyMish</h2>
-    <p class="small">Each of these was made on this page, in a browser, with the free themes.</p>
+    <p class="small">Each of these was made on this page, in a browser, with real products from our partner store, mishbio.us.</p>
     <div class="gal">
-      <figure><video controls playsinline preload="none" poster="./samples/promo-9x16-music.jpg" src="./samples/promo-9x16-music.mp4"></video><figcaption>Product promo · Sunset Pop · music</figcaption></figure>
-      <figure><video controls playsinline preload="none" poster="./samples/promo-9x16-voice.jpg" src="./samples/promo-9x16-voice.mp4"></video><figcaption>Product promo · Midnight Neon · AI voice</figcaption></figure>
-      <figure><video controls playsinline preload="none" poster="./samples/launch-reel-9x16.jpg" src="./samples/launch-reel-9x16.mp4"></video><figcaption>Offer · Midnight Neon · Snappy motion</figcaption></figure>
-      <figure class="wide"><video controls playsinline preload="none" poster="./samples/promo-16x9-music.jpg" src="./samples/promo-16x9-music.mp4"></video><figcaption>Product promo, 16:9 · Clean Mono</figcaption></figure>
+      <figure><video controls playsinline preload="none" poster="./samples/free-clean-mono-promo.jpg" src="./samples/free-clean-mono-promo.mp4"></video><figcaption><b class="tag free">FREE</b> Product promo · Clean Mono · basic motion</figcaption></figure>
+      <figure><video controls playsinline preload="none" poster="./samples/free-sunset-pop-giftguide.jpg" src="./samples/free-sunset-pop-giftguide.mp4"></video><figcaption><b class="tag free">FREE</b> Gift guide · Sunset Pop · basic motion</figcaption></figure>
+      <figure><video controls playsinline preload="none" poster="./samples/pack-bold-brand-blackfriday.jpg" src="./samples/pack-bold-brand-blackfriday.mp4"></video><figcaption><b class="tag pro">✨ MOTION PACK</b> Black Friday sale · Black Friday Blast</figcaption></figure>
+      <figure><video controls playsinline preload="none" poster="./samples/pack-luxe-gold-promo.jpg" src="./samples/pack-luxe-gold-promo.mp4"></video><figcaption><b class="tag pro">✨ MOTION PACK</b> Product promo · Luxe Gold</figcaption></figure>
     </div>
     <p class="small" style="margin-top:14px">Made for your platform or season: <span class="landings">{{VM_LANDINGS}}</span></p>
   </section>
@@ -313,9 +348,9 @@
     <h2>Questions</h2>
     <details><summary>Is this product video maker really free?</summary><p>Yes. Making and downloading videos is free:
       every template, the 4 free themes, your own colours, music, captions, the AI voice and recording your own voice.
-      There's no sign-up and no watermark. Optional Designer themes are US$3 each, or US$5 for all 8 (one-time).</p></details>
+      There's no sign-up and no watermark. Optional Motion Packs (paid themes with their own motion) are US$3 each, or US$5 for all 8 (one-time).</p></details>
     <details><summary>Is there a watermark?</summary><p>No. There's an optional end card that says "Made free at leymish.com",
-      and you can switch it off before you make the video. Only a preview made with a locked Designer theme is stamped.</p></details>
+      and you can switch it off before you make the video. Only a preview made with a locked Motion Pack is stamped.</p></details>
     <details><summary>Can I make a Black Friday video for free?</summary><p>Yes. Pick the Black Friday sale template, type
       your discount, what it covers, your code and the deadline, and download a 9:16 or 16:9 MP4. There's also a Christmas
       gift guide template with three products.</p></details>
@@ -328,8 +363,10 @@
       Firefox on a computer may work. Firefox on Android can preview but not export.</p></details>
     <details><summary>Is the voice a real person?</summary><p>No. It's an AI-generated voice (Kokoro) that runs on your
       device and is labelled as AI. There's no voice cloning. You can record your own voice instead, or use music only.</p></details>
-    <details><summary>What are Designer themes?</summary><p>Eight extra looks, including Holiday Glow and Luxury Noir, plus
-      Match my logo, which builds a theme from your logo's colours. You can make a full preview with any of them; it's stamped
+    <details><summary>What are Motion Packs?</summary><p>Eight paid themes, each with its own motion: transitions such
+      as whip pans, glitch cuts and light leaks, moving text (pop, typewriter, gold foil, neon), product moves, price effects
+      and particles like confetti and snow. The free themes have basic motion (fades and slides). They include Neon Pulse,
+      Black Friday Blast, Holiday Glow and Luxury Noir, plus Match my logo, which builds a theme from your logo's colours. You can make a full preview with any of them; it's stamped
       until you unlock the theme, then we re-make it clean. Prices are in US dollars, so your bank may convert. The money keeps
       this video maker free and pays for better free features. One-time, no subscription, and if a theme doesn't work for you,
       we refund it (<a href="/terms/#designer-themes">terms</a>).</p></details>

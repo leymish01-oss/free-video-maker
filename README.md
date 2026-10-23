@@ -32,10 +32,12 @@ optional voice. No sign-up, no watermark, nothing uploaded. Your photos and your
 - **Readable by design:** every theme, every custom palette and every logo palette is checked for WCAG AA contrast
   (captions 4.5:1 or better) against every colour the text can sit on; `node test/themes.test.mjs` tests the presets,
   500 random custom palettes and 200 random logos.
-- **Designer themes are a separate paid content pack.** On leymish.com the page also offers 8 extra themes and Match
-  my logo (US$3 each, or US$5 for all). Their designs are not part of this program or this repository and are not
-  covered by its GPL licence; `src/premium.js` only loads them from the site's server and asks it whether an export may
-  use one. Without that server, the tool runs with its free themes and every feature, and Match my logo is free too.
+- **Motion Packs are a separate paid content pack.** On leymish.com the page also offers 8 extra themes with their own
+  motion, plus Match my logo (US$3 each, or US$5 for all). Their designs and motion code are not part of this program or
+  this repository and are not covered by its GPL licence; `src/premium.js` only loads them from the site's server and
+  asks it whether an export may use one. The engine offers plug-in hooks for them (`word`, `photo`, `pill`, `endcard`,
+  `bg`, `overlay`, `shake`, `transition`, `swatch`; see `drawFrame` in `src/engine.js`), which anyone may use for their
+  own packs. Without that server, the tool runs with its free themes and every feature, and Match my logo is free too.
 - **Fonts:** 5 pairs (Inter, Poppins, Playfair Display, Bebas Neue and Space Grotesk headlines, Inter body), self-hosted
   OFL files from Fontsource. Nothing is loaded from Google Fonts.
 - **Motion:** Snappy, Smooth or Bouncy. **Texture:** none, film grain or soft shapes.
