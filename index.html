@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Free video maker: no sign-up, no watermark | LeyMish Labs</title>
+<meta name="description" content="Make a short video for your shop or business in your browser: motion graphics, captions, music and an optional voice. No sign-up, no watermark, nothing uploaded.">
+<meta name="robots" content="noindex">
+<link rel="canonical" href="{{SITE_URL}}/tools/video-maker/">
+<link rel="stylesheet" href="/assets/style.css">
+<style>
+  .vm { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 420px); gap: 28px; align-items: start; }
+  @media (max-width: 860px) { .vm { grid-template-columns: 1fr; } .vm .stage { order: -1; } }
+  .vm form, .vm .panel { display: grid; gap: 12px; }
+  .vm label { display: grid; gap: 5px; font-weight: 600; font-size: 15px; }
+  .vm input[type=text], .vm select { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; }
+  .vm .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .vm .row label { display: flex; gap: 6px; align-items: center; font-weight: 500; }
+  .vm fieldset { border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+  .vm legend { font-weight: 700; padding: 0 6px; }
+  .stage { position: sticky; top: 16px; display: grid; gap: 10px; }
+  #preview { width: 100%; max-width: 420px; aspect-ratio: 9 / 16; border-radius: 16px; background: #000; display: block; }
+  #preview.landscape { aspect-ratio: 16 / 9; max-width: 100%; }
+  .small { font-size: 14px; color: var(--muted); }
+  .note { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--surface); }
+  #unsupported { border-color: #b42318; color: #b42318; }
+  #resultVideo { width: 100%; max-width: 420px; border-radius: 14px; background: #000; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="logo" href="/">leymish<span>/</span>labs</a>
+    <nav>{{SITE_NAV}}</nav>
+  </header>
+  <div class="hero">
+    <div class="eyebrow">Free tool · no sign-up · no watermark</div>
+    <h1>Make a short video for your shop, free</h1>
+    <p class="lede">Motion graphics, captions, music and an optional voice, made in your browser. Your photos and your
+      video never leave your device.</p>
+  </div>
+  <p id="unsupported" class="note" hidden></p>
+  <div class="vm">
+    <form id="form" onsubmit="return false">
+      <label>Template<select id="template"></select></label>
+      <p id="blurb" class="small"></p>
+      <div id="fields" class="panel"></div>
+      <div id="photosRow"><label>Photos<input id="photos" type="file" accept="image/*" multiple></label>
+        <p id="photoHint" class="small"></p></div>
+      <fieldset><legend>Look</legend>
+        <div class="row">
+          <label>Shape <select id="aspect"><option value="9x16">9:16 (Reels, Shorts, TikTok)</option><option value="16x9">16:9 (YouTube)</option></select></label>
+        </div>
+        <div class="row">
+          <label>Background <input id="bg" type="color" value="#16181d"></label>
+          <label>Accent <input id="accent" type="color" value="#4cc38a"></label>
+          <label>Logo <input id="logo" type="file" accept="image/*"></label>
+        </div>
+        <div class="row">
+          <label><input id="captions" type="checkbox" checked> Captions</label>
+          <label><input id="endcard" type="checkbox" checked> End card "Made free at leymish.com"</label>
+        </div>
+      </fieldset>
+      <fieldset><legend>Sound</legend>
+        <label>Music <select id="music"></select></label>
+        <div class="row">
+          <label><input type="radio" name="voiceMode" value="none" checked> No voice</label>
+          <label><input type="radio" name="voiceMode" value="ai"> AI-generated voice</label>
+          <label><input type="radio" name="voiceMode" value="record"> Record my own voice</label>
+        </div>
+        <div id="aiBox" class="panel" hidden>
+          <label>Voice <select id="voice"></select></label>
+          <label>Speed <input id="speed" type="range" min="0.85" max="1.15" step="0.05" value="1"> <span id="speedVal" class="small">1.00×</span></label>
+          <button class="btn" id="voiceBtn" type="button">Add voice / Update voice</button>
+          <p class="small">An AI-generated voice that runs on your device (Kokoro). The first time, it downloads about 90 MB.
+            No voice cloning.</p>
+        </div>
+        <div id="recBox" class="panel" hidden>
+          <button class="btn" id="recBtn" type="button">Record my own voice</button>
+          <p class="small">The preview plays while you read each caption aloud. Your recording stays on your device.</p>
+        </div>
+        <p id="voiceStatus" class="small" aria-live="polite"></p>
+      </fieldset>
+      <div class="row">
+        <button class="btn primary" id="exportBtn" type="button">Make my video (MP4)</button>
+        <span id="exportStatus" class="small" aria-live="polite"></span>
+      </div>
+      <div id="result" class="panel" hidden>
+        <video id="resultVideo" controls playsinline></video>
+        <p><a class="btn primary" id="download" href="#">Download MP4</a></p>
+        <div class="note">
+          <strong>Selling online?</strong> If Google Shopping has disapproved your products or suspended your Merchant
+          Center account, our <a id="ctaCheck" href="/woocommerce/merchant-center-check/?utm_source=video-maker&amp;utm_medium=tool&amp;utm_campaign=vm">free Merchant Center check</a>
+          shows why in about a minute, and we can <a id="ctaFix" href="/woocommerce/google-merchant-center/?utm_source=video-maker&amp;utm_medium=tool&amp;utm_campaign=vm">fix it for you</a>.
+        </div>
+      </div>
+    </form>
+    <div class="stage">
+      <canvas id="preview" width="1080" height="1920" aria-label="Video preview"></canvas>
+      <div class="row"><button class="btn" id="playBtn" type="button">Play</button><span class="small">Length: <span id="dur"></span></span></div>
+      <p class="small">Free and open source (GPL-3): <a href="https://github.com/leymish01-oss/free-video-maker">source on GitHub</a>.
+        Works best in Chrome or Edge on a computer or Android phone.</p>
+    </div>
+  </div>
+  <footer>{{SITE_FOOTER}}</footer>
+</div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

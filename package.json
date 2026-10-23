@@ -1,0 +1,10 @@
+{
+  "name": "free-video-maker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Free in-browser video maker: motion graphics, captions, optional voice. Nothing leaves your device.",
+  "license": "GPL-3.0-or-later",
+  "scripts": { "build": "node build.mjs" },
+  "dependencies": { "mediabunny": "^1.0.0", "kokoro-js": "^1.2.0" },
+  "devDependencies": { "esbuild": "^0.25.0" }
+}
