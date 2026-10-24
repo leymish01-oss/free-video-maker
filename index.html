@@ -111,10 +111,14 @@
   #resultVideo { width: 100%; max-width: 400px; border-radius: 14px; background: #000; }
   #logoDots i { display: inline-block; width: 18px; height: 18px; border-radius: 50%; margin-right: 4px; vertical-align: middle; border: 1px solid var(--line); }
   input[type=color] { width: 100%; height: 38px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 2px; }
-  .gallery { margin: 40px 0 10px; } .gal { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .gallery { margin: 40px 0 10px; } .gal { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
   @media (max-width: 760px) { .gal { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .gal .tag { font: 700 10.5px/1 var(--mono); letter-spacing: .04em; padding: 3px 6px; border-radius: 999px; margin-right: 4px; }
-  .gal .tag.free { background: #e3f4ec; color: #14532d; } .gal .tag.pro { background: #fdeee4; color: #8a3507; }
+  .gal .tag.free { background: #e3f4ec; color: #14532d; } .gal .tag.pro { background: #fdeee4; color: #8a3507; } .gal .tag.voice { background: #e8eefc; color: #1e3a8a; }
+  .vwrap { position: relative; } .vwrap video { width: 100%; display: block; }
+  .soundbtn { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); border: 0; border-radius: 999px; padding: 9px 16px;
+    background: rgba(11,31,63,.88); color: #fff; font: 700 15px/1 system-ui, -apple-system, "Segoe UI", sans-serif; cursor: pointer; white-space: nowrap; }
+  .soundbtn:focus-visible { outline: 3px solid var(--cta, #ff7a2e); outline-offset: 2px; }
   .gal figure { margin: 0; } .gal figure.wide { grid-column: 1 / -1; }
   .gal video { width: 100%; border-radius: 14px; background: #000; display: block; }
   .gal figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
@@ -178,6 +182,7 @@
       <section class="step" data-step="3" aria-labelledby="s3h" hidden>
         <h2 id="s3h">Your words</h2>
         <p class="small"><span id="typeName"></span> · <button id="changeType" class="linkbtn" type="button">Change type</button></p>
+        <p id="wordsNote" class="note small" role="status" hidden></p>
         <p id="blurb" class="small"></p>
         <p class="small">Tip: keep each line short; it reads better on a phone. Grey text is only an example.</p>
         <div id="fields" class="panel"></div>
@@ -335,12 +340,14 @@
   </div>
   <section class="gallery" aria-labelledby="madewith">
     <h2 id="madewith">Made with LeyMish</h2>
-    <p class="small">Each of these was made on this page, in a browser, with real products from our partner store, mishbio.us.</p>
+    <p class="small">Each of these was made on this page, in a browser: product videos with real products from our partner store, mishbio.us, and a tip video from one of our own blog posts.</p>
     <div class="gal">
-      <figure><video controls playsinline preload="none" poster="./samples/free-clean-mono-promo.jpg" src="./samples/free-clean-mono-promo.mp4"></video><figcaption><b class="tag free">FREE</b> Product promo · Clean Mono · basic motion</figcaption></figure>
-      <figure><video controls playsinline preload="none" poster="./samples/free-sunset-pop-giftguide.jpg" src="./samples/free-sunset-pop-giftguide.mp4"></video><figcaption><b class="tag free">FREE</b> Gift guide · Sunset Pop · basic motion</figcaption></figure>
-      <figure><video controls playsinline preload="none" poster="./samples/pack-bold-brand-blackfriday.jpg" src="./samples/pack-bold-brand-blackfriday.mp4"></video><figcaption><b class="tag pro">✨ MOTION PACK</b> Black Friday sale · Black Friday Blast</figcaption></figure>
-      <figure><video controls playsinline preload="none" poster="./samples/pack-luxe-gold-promo.jpg" src="./samples/pack-luxe-gold-promo.mp4"></video><figcaption><b class="tag pro">✨ MOTION PACK</b> Product promo · Luxe Gold</figcaption></figure>
+      <figure><div class="vwrap"><video muted loop playsinline preload="none" poster="./samples/free-clean-mono-promo.jpg" data-src="./samples/free-clean-mono-promo.mp4" aria-label="FREE Product promo · Clean Mono · music"></video></div><figcaption><b class="tag free">FREE</b> Product promo · Clean Mono · music</figcaption></figure>
+      <figure><div class="vwrap"><video muted loop playsinline preload="none" poster="./samples/free-sunset-pop-giftguide.jpg" data-src="./samples/free-sunset-pop-giftguide.mp4" aria-label="FREE Gift guide · Sunset Pop · music"></video></div><figcaption><b class="tag free">FREE</b> Gift guide · Sunset Pop · music</figcaption></figure>
+      <figure class="voiced"><div class="vwrap"><video muted loop playsinline preload="none" poster="./samples/voice-tip-midnight-neon-heart.jpg" data-src="./samples/voice-tip-midnight-neon-heart.mp4" aria-label="FREE 🗣️ AI voice + music Tip from a blog post · Midnight Neon · voice: Heart"></video><button type="button" class="soundbtn">🔊 Tap for sound</button></div><figcaption><b class="tag free">FREE</b> <b class="tag voice">🗣️ AI voice + music</b> Tip from a blog post · Midnight Neon · voice: Heart</figcaption></figure>
+      <figure><div class="vwrap"><video muted loop playsinline preload="none" poster="./samples/pack-bold-brand-blackfriday.jpg" data-src="./samples/pack-bold-brand-blackfriday.mp4" aria-label="✨ MOTION PACK Black Friday sale · Black Friday Blast · music"></video></div><figcaption><b class="tag pro">✨ MOTION PACK</b> Black Friday sale · Black Friday Blast · music</figcaption></figure>
+      <figure><div class="vwrap"><video muted loop playsinline preload="none" poster="./samples/pack-luxe-gold-promo.jpg" data-src="./samples/pack-luxe-gold-promo.mp4" aria-label="✨ MOTION PACK Product promo · Luxe Gold · music"></video></div><figcaption><b class="tag pro">✨ MOTION PACK</b> Product promo · Luxe Gold · music</figcaption></figure>
+      <figure class="voiced"><div class="vwrap"><video muted loop playsinline preload="none" poster="./samples/voice-pack-holiday-glow-george.jpg" data-src="./samples/voice-pack-holiday-glow-george.mp4" aria-label="✨ MOTION PACK 🗣️ AI voice + music Product promo · Holiday Glow · voice: George"></video><button type="button" class="soundbtn">🔊 Tap for sound</button></div><figcaption><b class="tag pro">✨ MOTION PACK</b> <b class="tag voice">🗣️ AI voice + music</b> Product promo · Holiday Glow · voice: George</figcaption></figure>
     </div>
     <p class="small" style="margin-top:14px">Made for your platform or season: <span class="landings">{{VM_LANDINGS}}</span></p>
   </section>

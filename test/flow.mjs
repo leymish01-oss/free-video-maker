@@ -30,6 +30,7 @@ const LINKS = { // real public pages (our partner store is mishbio.us)
   woo: "https://mishbio.us/product/peptide-ageless-am-pm-cream/",
   shopify2: "https://www.tentree.com/products/w-tencel-pacific-jogger",
   site: "https://www.leymish.com/",
+  blog: "https://www.leymish.com/blog/woocommerce-products-not-syncing-to-merchant-center.html", // P-068: tips from a post
 };
 const fake = (id, name, bg) => ({ id, name, font: "inter", texture: "none", bg: { type: "solid", color: bg }, surface: bg,
   ink: "#ffffff", muted: "#dddddd", accent: "#ffcc00", highlight: "#ffcc00", onAccent: "#000000",
@@ -48,6 +49,8 @@ const MOCK_PAGES = {
   [LINKS.woo]: { kind: "product", title: "Peptide Ageless AM/PM Cream", price: "$38", benefits: ["Smooths fine lines", "Hydrating"] },
   [LINKS.shopify2]: { kind: "product", title: "Tencel Pacific Jogger", price: "$88", benefits: [] },
   [LINKS.site]: { kind: "site", title: "LeyMish Labs", siteName: "LeyMish Labs", description: "Merchant Center fixes for online stores", benefits: [] },
+  [LINKS.blog]: { kind: "site", title: "WooCommerce products not syncing", siteName: "LeyMish Labs", benefits: [], // mocked: 2 tips, so "add one more"
+    tips: { hook: "WooCommerce products not syncing to Google Merchant Center", items: ["Did setup actually finish?", "Is the job queue running?"], source: "headings" } },
 };
 
 let failed = 0;
@@ -165,16 +168,34 @@ async function humanFixes(page, tag) {
 for (const [vw, vh, tag] of [[1366, 1000, "desktop"], [390, 844, "mobile"]]) {
   const ctx = await context({ width: vw, height: vh });
   const page = await ctx.newPage();
-  const open = async () => { await page.goto(url, { waitUntil: "networkidle" }); await page.waitForSelector(".typecard"); };
+  // "load", not "networkidle": the showcase videos stream while they're on screen (P-068), so the network never goes quiet
+  const open = async () => { await page.goto(url, { waitUntil: "load" }); await page.waitForSelector(".typecard");
+    await page.waitForFunction(() => document.querySelectorAll(".swatch").length > 6, null, { timeout: 20000 }).catch(() => {}); }; // the paid looks arrive from the server
   const types = ["promo", "blackfriday", "giftguide", "offer", "tip"].filter((t) => !ONLY.length || ONLY.includes(t));
   for (const type of types) {
     await open();
     check(await page.isVisible('.step[data-step="1"]') && (await page.$$(".typecard")).length === 5, `${tag}/${type}: starts at Type with 5 cards`);
     if (type === "promo") { await shot(page, `${tag}-1-type`); check(await page.isVisible("#exampleTag") || tag === "mobile", `${tag}: the sample preview is labelled Example`); }
     await page.click(`.typecard[data-type="${type}"]`);
-    if (type === "tip") {
-      check(await page.isVisible('.step[data-step="3"]'), `${tag}/tip: the link step is skipped`);
+    if (type === "tip") { // P-068: an optional link step; first "Skip", then back to grab tips from a blog post
+      check(await page.isVisible('.step[data-step="2"]') && /optional/i.test(await page.textContent("#s2h")) &&
+        /Grab my tips/.test(await page.textContent("#fromUrlBtn")) && /Skip, I'll type my tips/.test(await page.textContent("#typeMyself")), `${tag}/tip: optional link step with "Grab my tips" and "Skip, I'll type my tips"`);
+      await shot(page, `${tag}-2-link-tip`);
+      await page.click("#typeMyself");
+      check(await page.isVisible('.step[data-step="3"]'), `${tag}/tip: Skip goes straight to the words`);
       check((await field(page, "p1")) === "" && (await page.getAttribute('#fields input[data-id="p1"]', "placeholder")).startsWith("e.g."), `${tag}/tip: empty fields with hints`);
+      await page.evaluate(() => window.__vmGo(2));
+      const r = await grab(page, [LINKS.blog]);
+      timings[`${tag} tip extract`] = r.secs + " s";
+      const tips = [await field(page, "p1"), await field(page, "p2"), await field(page, "p3")];
+      check(r.ok && tips[0].length > 3 && tips[1].length > 3 && tips.filter(Boolean).every((t) => t.split(" ").length <= 8) && /Merchant Center|syncing/i.test(await field(page, "hook")),
+        `${tag}/tip: tips from a blog post (${r.secs} s): ${tips.filter(Boolean).join(" | ")}`);
+      check((await field(page, "cta")) === "Read the full guide" && (await field(page, "url")) === "leymish.com", `${tag}/tip: CTA "Read the full guide" and the site's domain`);
+      if (!tips[2]) check(/We found 2 tips; add one more/.test(await page.textContent("#wordsNote")), `${tag}/tip: "We found 2 tips; add one more"`);
+      await page.fill('#fields input[data-id="p2"]', "My own second tip");
+      await page.click("#changeType"); await page.click('.typecard[data-type="promo"]');
+      await page.evaluate(() => { window.__vmType("tip"); window.__vmGo(3); });
+      check((await field(page, "p2")) === "My own second tip", `${tag}/tip: my edit survives a change of type`);
       await page.fill('#fields input[data-id="hook"]', "Three ways to *sell more* this week");
       await page.fill('#fields input[data-id="p1"]', "Reply to every review");
       await page.fill('#fields input[data-id="p2"]', "Post one photo a day");
@@ -237,7 +258,7 @@ for (const [vw, vh, tag] of [[1366, 1000, "desktop"], [390, 844, "mobile"]]) {
 if (!ONLY.length) {
   const ctx = await context({ width: 1366, height: 1000 }, { pack: true });
   const page = await ctx.newPage();
-  await page.goto(url, { waitUntil: "networkidle" }); await page.waitForSelector('.swatch[data-theme="test-a"]', { state: "attached" });
+  await page.goto(url, { waitUntil: "load" }); await page.waitForSelector('.swatch[data-theme="test-a"]', { state: "attached" });
   await page.click('.typecard[data-type="promo"]');
   await grab(page, [LINKS.woo]);
   if (VOICE) {

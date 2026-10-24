@@ -22,7 +22,7 @@ export const TEMPLATES = {
       { type: "product", headline: f.name, price: f.price, photo: 0, line: `${plain(f.name)}. ${plain(f.price)}`,
         say: `${plain(f.name)}. ${spokenPrice(f.price)}`, dur: 3.6 },
       { type: "points", kicker: "Why you'll love it", items: [f.b1, f.b2, f.b3],
-        line: [f.b1, f.b2, f.b3].filter(Boolean).map(plain).join(". ") + ".", dur: 5 },
+        line: [f.b1, f.b2, f.b3].filter(Boolean).map(plain).join(". ").replace(/([.!?…])\. /g, "$1 ") + ".", dur: 5 },
       ...(f._photos > 1 ? [{ type: "photo", headline: f.name, photo: 1, line: "", dur: 2.2 }] : []),
       { type: "cta", headline: `*${f.cta}*`, button: f.url, line: `${plain(f.cta)} at ${plain(f.url)}.`,
         say: `${plain(f.cta)} at ${spokenUrl(f.url)}.`, dur: 3.2 },
@@ -42,10 +42,10 @@ export const TEMPLATES = {
     photos: 0,
     build: (f) => [
       { type: "hook", headline: f.hook, line: plain(f.hook), dur: 2.4 },
-      { type: "title", kicker: "Tip 1", headline: f.p1, line: plain(f.p1) + ".", dur: 3 },
-      { type: "title", kicker: "Tip 2", headline: f.p2, line: plain(f.p2) + ".", dur: 3 },
-      { type: "title", kicker: "Tip 3", headline: f.p3, line: plain(f.p3) + ".", dur: 3 },
-      { type: "cta", headline: `*${f.cta}*`, button: f.url, line: plain(f.cta) + ".", dur: 3 },
+      { type: "title", kicker: "Tip 1", headline: f.p1, line: end(f.p1), dur: 3 },
+      { type: "title", kicker: "Tip 2", headline: f.p2, line: end(f.p2), dur: 3 },
+      { type: "title", kicker: "Tip 3", headline: f.p3, line: end(f.p3), dur: 3 },
+      { type: "cta", headline: `*${f.cta}*`, button: f.url, line: end(f.cta), dur: 3 },
     ],
   },
   offer: {
@@ -62,9 +62,9 @@ export const TEMPLATES = {
     photos: 1,
     build: (f) => [
       { type: "hook", headline: f.hook, line: plain(f.hook), dur: 2.4 },
-      f._photos ? { type: "photo", headline: f.what, photo: 0, line: plain(f.what) + ".", dur: 3.2 }
-        : { type: "title", headline: f.what, line: plain(f.what) + ".", dur: 3.2 },
-      { type: "points", kicker: "The details", items: [f.d1, f.d2], line: [f.d1, f.d2].filter(Boolean).map(plain).join(". ") + ".", dur: 3.6 },
+      f._photos ? { type: "photo", headline: f.what, photo: 0, line: end(f.what), dur: 3.2 }
+        : { type: "title", headline: f.what, line: end(f.what), dur: 3.2 },
+      { type: "points", kicker: "The details", items: [f.d1, f.d2], line: [f.d1, f.d2].filter(Boolean).map(plain).join(". ").replace(/([.!?…])\. /g, "$1 ") + ".", dur: 3.6 },
       { type: "cta", headline: `*${f.when}*`, button: f.url, line: `${plain(f.when)}. ${plain(f.url)}`,
         say: `${plain(f.when)}. ${spokenUrl(f.url)}.`, dur: 3 },
     ],
@@ -87,8 +87,8 @@ export const TEMPLATES = {
       { type: "title", kicker: plain(f.what), headline: `*${plain(f.pct)}*`, size: 2.1, line: `${plain(f.pct)}. ${plain(f.what)}.`,
         say: `${spokenPercent(f.pct)}. ${plain(f.what)}.`, dur: 3 },
       ...(f._photos ? [{ type: "photo", headline: `*${plain(f.pct)}*`, photo: 0, line: "", dur: 2.4, ...wasNow(f._price, f.pct) }] : []),
-      ...(plain(f.code) ? [{ type: "title", kicker: "How", headline: f.code, line: plain(f.code) + ".", dur: 2.8 }] : []),
-      { type: "title", kicker: "Hurry", headline: `*${plain(f.until)}*`, size: 1.15, line: plain(f.until) + ".", dur: 2.6 },
+      ...(plain(f.code) ? [{ type: "title", kicker: "How", headline: f.code, line: end(f.code), dur: 2.8 }] : []),
+      { type: "title", kicker: "Hurry", headline: `*${plain(f.until)}*`, size: 1.15, line: end(f.until), dur: 2.6 },
       { type: "cta", headline: `*${f.cta}*`, button: f.url, line: `${plain(f.cta)} at ${plain(f.url)}.`,
         say: `${plain(f.cta)} at ${spokenUrl(f.url)}.`, dur: 3 },
     ],
@@ -120,6 +120,9 @@ export function spokenPercent(p) { return plain(p).replace(/(\d+)\s*%/g, "$1 per
 
 export const ENDCARD = { type: "endcard", headline: "Made free at *leymish.com*", small: "No sign-up. Made on your device.", line: "", dur: 2.2 };
 
+/** A caption or voice line ends with one stop: "Is it running?" stays as it is, "Ships free" gets a ".". */
+export function end(s) { const t = plain(s); return t && !/[.!?…]$/.test(t) ? t + "." : t; }
+
 export function plain(s) { return String(s || "").replace(/\*/g, "").trim(); }
 
 /** "$29" -> "Twenty-nine dollars" is overkill; "$29" -> "29 dollars" reads naturally for every TTS voice. */
@@ -136,6 +139,14 @@ export function spokenUrl(u) {
   if (s.startsWith("@")) return "at " + s.slice(1);
   return s.replace(/\./g, " dot ");
 }
+
+/** What the AI voice says for a line: shop shorthand spelled out so the voice reads it right (P-068). */
+const VOICE_ALIASES = [
+  [/\bAM\s*\/\s*PM\b/g, "A.M. P.M."], [/\bPM\s*\/\s*AM\b/g, "P.M. A.M."], [/\bw\/\s*/gi, "with "], [/\s&\s/g, " and "],
+  [/\be\.g\.\s*/gi, "for example "], [/\bvs\.?\s/gi, "versus "], [/\b(\d+)\s*ml\b/gi, "$1 millilitres"], [/\b(\d+)\s*oz\b/gi, "$1 ounces"],
+  [/\bSPF\s*(\d+)/g, "S P F $1"], [/\bFAQs?\b/g, (m) => (m.length > 3 ? "F A Qs" : "F A Q")], [/\bGTINs?\b/g, (m) => (m.length > 4 ? "G-tins" : "G-tin")],
+];
+export function forVoice(text) { return VOICE_ALIASES.reduce((t, [rx, to]) => t.replace(rx, to), String(text || "")); }
 
 /** "Was $38, now $26.60": only when the user's own price and discount are both real numbers; otherwise nothing. */
 export function wasNow(price, pct) {

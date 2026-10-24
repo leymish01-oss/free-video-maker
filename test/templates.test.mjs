@@ -24,3 +24,11 @@ test("the Black Friday photo scene carries was/now only with a real price", () =
   const without = buildScenes("blackfriday", { pct: "30% off" }, { photos: 1 }).find((s) => s.type === "photo");
   assert.equal(without.was, undefined); assert.equal(without.price, undefined);
 });
+
+test("the voice reads shop shorthand right (P-068)", async () => {
+  const { forVoice } = await import("../src/templates.js");
+  assert.equal(forVoice("Peptide Ageless AM/PM Cream"), "Peptide Ageless A.M. P.M. Cream");
+  assert.equal(forVoice("Bloom & Co, 50 ml, SPF 30"), "Bloom and Co, 50 millilitres, S P F 30");
+  assert.equal(forVoice("Shipping FAQ"), "Shipping F A Q");
+  assert.equal(forVoice("No change here."), "No change here.");
+});

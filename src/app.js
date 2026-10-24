@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { SIZES, drawFrame, drawSwatch, timeline, totalDuration } from "./engine.js";
 import { THEMES, THEME_IDS, DEFAULT_THEME, FONTS, MOTIONS, TEXTURES, FONT_FILES, customTheme, logoColors, logoTheme } from "./themes.js";
-import { TEMPLATES, buildScenes } from "./templates.js";
+import { TEMPLATES, buildScenes, forVoice } from "./templates.js";
 import { BEDS, renderBed } from "./music.js";
 import { exportMp4, mixAudio, support } from "./export.js";
 import { apiBase, loadPack, loadMotion, canExport, redeem, restore, saveToken, claimedIds } from "./premium.js";
@@ -34,7 +34,8 @@ const LINK = { // what the link step asks for, per type
   blackfriday: { boxes: 1, label: "Paste your product (or shop) link", intro: "We read the page's details; you add the discount.", bf: true },
   giftguide: { boxes: 3, label: "Product link", intro: "Add up to 3 product links. We read each one's name, price and photo." },
   offer: { boxes: 1, label: "Paste your website link", intro: "We read your site's name, description and picture." },
-  tip: null,
+  tip: { boxes: 1, label: "Paste a blog post, guide, FAQ or product page (optional)", tips: true, button: "✨ Grab my tips", skip: "Skip, I'll type my tips",
+    intro: "We turn its headings, lists or questions into 3 short tips. You can change every word next." }, // P-068
 };
 
 const $ = (id) => document.getElementById(id);
@@ -94,7 +95,7 @@ function values(tpl = state.template) {
 const linkSkipped = () => !LINK[state.template];
 function go(n) {
   n = Math.max(1, Math.min(6, n));
-  if (n === 2 && linkSkipped()) n = state.step > 2 ? 1 : 3; // a tip needs no link
+  if (n === 2 && linkSkipped()) n = state.step > 2 ? 1 : 3; // a type without a link step (none since P-068: Tip has an optional one)
   state.step = n;
   document.querySelector(".studio").dataset.step = n;
   if (n === 4) playCompare();
@@ -161,17 +162,26 @@ function renderLinkStep() {
   if (!L) return;
   $("s2h").textContent = state.template === "giftguide" ? "Paste up to 3 product links" : L.label;
   $("linkIntro").textContent = L.intro;
+  $("fromUrlBtn").textContent = L.button || "✨ Grab my details";
+  $("typeMyself").textContent = L.skip || "No link? Type it myself";
+  $("typeMyself").className = L.skip ? "btn" : "linkbtn"; // optional link: skipping is a real choice, not a footnote
   $("bfBox").hidden = !L.bf;
   const box = $("linkBoxes"), old = [...box.querySelectorAll("input")].map((i) => i.value);
   box.innerHTML = "";
   for (let i = 0; i < L.boxes; i++) {
     const inp = document.createElement("input");
     inp.type = "url"; inp.inputMode = "url"; inp.className = "linkInput"; inp.value = old[i] || "";
-    inp.placeholder = L.boxes > 1 ? `Product ${i + 1} link${i ? " (optional)" : ""}` : L.label;
+    inp.placeholder = L.boxes > 1 ? `Product ${i + 1} link${i ? " (optional)" : ""}` : L.tips ? "https://yourstore.com/blog/your-post" : L.label;
     inp.setAttribute("aria-label", inp.placeholder);
     if (i === 0) inp.id = "fromUrlInput";
     box.appendChild(inp);
   }
+}
+/** After reading a page for tips: how many we found, and what's left to type. */
+function tipsNote() {
+  const n = state.tipsFound || 0;
+  return n >= 3 ? "We found 3 tips." : n === 0 ? "We couldn't find tips on that page; type 3 below."
+    : `We found ${n} tip${n === 1 ? "" : "s"}; add ${3 - n === 1 ? "one more" : "two more"}.`;
 }
 function linkError(msg) {
   $("linkError").hidden = false;
@@ -209,6 +219,13 @@ async function grab() {
         if (d.price) state.auto[`gift.${i}.price`] = d.price;
         if (page.images && page.images[0]) { const img = await proxied(API, page.images[0]); if (img) state.photos[i] = img; }
         if (i === 0) state.auto.url = d.url;
+      } else if (LINK[state.template].tips) { // P-068: the page's own headings, lists or questions become the tips
+        const t = page.tips || { hook: "", items: [] };
+        state.auto.url = d.url;
+        if (t.hook) state.auto["hook.tip"] = t.hook; else delete state.auto["hook.tip"];
+        [0, 1, 2].forEach((k) => { if (t.items[k]) state.auto[`point.${k}`] = t.items[k]; else delete state.auto[`point.${k}`]; });
+        state.auto["cta.tip"] = "Read the full guide";
+        state.tipsFound = t.items.length;
       } else {
         Object.assign(state.auto, d);
         const want = TEMPLATES[state.template].photos || 1;
@@ -234,7 +251,8 @@ async function grab() {
   }
   writeHooks(); restart();
   const secs = ((performance.now() - t0) / 1000).toFixed(1);
-  $("fromUrlStatus").textContent = `Done in ${secs} s: ${gift ? `${ok} of ${links.length} products` : `${state.photos.length} photo${state.photos.length === 1 ? "" : "s"}${val("price") ? `, price ${val("price")}` : ""}`}. Check the words next.`;
+  const tipsLine = LINK[state.template].tips ? tipsNote() : "";
+  $("fromUrlStatus").textContent = `Done in ${secs} s: ${tipsLine ? tipsLine.replace(/\.$/, "") : gift ? `${ok} of ${links.length} products` : `${state.photos.length} photo${state.photos.length === 1 ? "" : "s"}${val("price") ? `, price ${val("price")}` : ""}`}. Check the words next.`;
   gtagEvent("vm_extract", { result: "ok", type: state.template, source: source || "", kind: kind || "", links: links.length, ok });
   window.__vmFromUrlDone = { ok: true, kind, source, photos: state.photos.length, links: links.length, read: ok, ...(lastErr ? { partial: String(lastErr.message) } : {}) };
   if (lastErr) linkError(`One link couldn't be read (${lastErr.message}). The others are filled in; you can type the missing one.`);
@@ -266,6 +284,8 @@ function renderFields() {
     if (marked) { const row = document.createElement("div"); row.className = "hlrow"; inp.hl = row; $("fields").appendChild(row); drawMarks(inp); }
   });
   $("photosRow").hidden = !t.photos;
+  const note = LINK[state.template] && LINK[state.template].tips && state.fromUrl && state.tipsFound < 3 ? tipsNote() : "";
+  $("wordsNote").hidden = !note; $("wordsNote").textContent = note;
   renderPhotos(); renderLogo();
 }
 
@@ -506,7 +526,7 @@ async function ensureVoice(onStatus) {
   const key = voiceKey();
   if (state.clipsKey === key && Object.keys(state.clips).length) return;
   await loadVoice(onStatus);
-  const raw = rawScenes(), lines = raw.map((s, i) => [i, s.say || s.line]).filter(([, l]) => l);
+  const raw = rawScenes(), lines = raw.map((s, i) => [i, forVoice(s.say || s.line)]).filter(([, l]) => l);
   const clips = {};
   for (let k = 0; k < lines.length; k++) {
     const [i, text] = lines[k];
@@ -915,6 +935,26 @@ function thank(kind, ids = []) {
   badges();
 }
 
+// ------------------------------------------------------------------------------------------- the showcase videos
+// P-068: they play muted while on screen (fetched only then) and pause off screen. The voice samples carry a
+// "Tap for sound" button that unmutes and restarts that one video with its controls.
+function initGallery() {
+  const vids = [...document.querySelectorAll(".gal video[data-src]")];
+  const load = (v) => { if (!v.src) v.src = v.dataset.src; };
+  const io = typeof IntersectionObserver === "function" ? new IntersectionObserver((es) => es.forEach((e) => {
+    const v = e.target;
+    if (e.isIntersecting) { load(v); v.play().catch(() => { v.controls = true; }); } else v.pause();
+  }), { threshold: 0.5 }) : null;
+  vids.forEach((v) => { if (io) io.observe(v); else { load(v); v.controls = true; } });
+  document.querySelectorAll(".gal .soundbtn").forEach((b) => b.addEventListener("click", () => {
+    const v = b.parentElement.querySelector("video");
+    load(v); v.muted = false; v.controls = true; v.currentTime = 0; v.loop = false;
+    v.play().catch(() => {});
+    b.hidden = true;
+    gtagEvent("vm_gallery_sound", { video: v.dataset.src.split("/").pop() });
+  }));
+}
+
 // ---------------------------------------------------------------------------------------------------- wiring
 async function readImage(file) {
   const img = new Image();
@@ -923,6 +963,7 @@ async function readImage(file) {
   return img;
 }
 function init() {
+  initGallery();
   VOICES.forEach((v) => $("voice").add(new Option(v.name, v.id)));
   Object.entries(BEDS).forEach(([k, b]) => $("music").add(new Option(b.name, k)));
   $("music").value = state.bed;
@@ -973,7 +1014,7 @@ function init() {
       await loadVoice((label) => { $("voiceStatus").textContent = label; });
       $("voiceStatus").textContent = "Making a sample line…";
       const first = rawScenes().find((s) => s.line);
-      const m = await speak(first ? (first.say || first.line) : "Here's how your video will sound.");
+      const m = await speak(first ? forVoice(first.say || first.line) : "Here's how your video will sound.");
       const ac = new AudioContext(), buf = ac.createBuffer(1, m.audio.length, m.rate);
       buf.copyToChannel(m.audio, 0); ac.close();
       playBuffer(buf);
@@ -1025,6 +1066,7 @@ function init() {
 }
 window.__vmStill = (t, extra = {}) => { const tl = timeline(scenes()); drawFrame(ctx, tl, t < 0 ? totalDuration(tl) + t : t, opts(extra)); return canvas.toDataURL("image/png"); }; // a test hook: t < 0 counts from the end
 window.__vmGo = go; // a test hook: jump to a step
+window.__vmSay = () => rawScenes().map((s) => forVoice(s.say || s.line)).filter(Boolean); // a test hook: what the voice will say
 window.__vmBench = (n = 120) => { // a test hook: ms per 1080×1920 frame with the current look, drawing only (no encoding)
   const tl = timeline(scenes()), total = totalDuration(tl);
   const c = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(1080, 1920) : Object.assign(document.createElement("canvas"), { width: 1080, height: 1920 }); // as the export draws
